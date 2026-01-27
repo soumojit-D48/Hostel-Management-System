@@ -10,11 +10,11 @@ export interface AuthenticatedRequest extends Express.Request {
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
-  message?: string;
+  message?: string | undefined;
   error?: {
     code: string;
     message: string;
-    details?: any[];
+    details?: any[] | undefined;
   };
 }
 
@@ -23,7 +23,10 @@ export interface PaginationParams {
   limit: number;
 }
 
-export interface PaginatedResponse<T> extends ApiResponse<T[]> {
+export interface PaginatedResponse<T> {
+  success: boolean;
+  data: T[];
+  message?: string | undefined;
   pagination: {
     page: number;
     limit: number;
