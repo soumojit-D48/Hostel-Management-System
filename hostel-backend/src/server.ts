@@ -1,9 +1,12 @@
 import app from './app';
 import { config } from './shared/config/config';
 import { logger } from './shared/services/logger.service';
+import { connectDatabase } from './config/database';
 
 const startServer = async (): Promise<void> => {
   try {
+    await connectDatabase();
+    
     const server = app.listen(config.PORT, () => {
       logger.info({
         message: 'Server started successfully',
