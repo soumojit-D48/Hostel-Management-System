@@ -1,0 +1,334 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  STAFF
+  MANAGEMENT
+}
+
+enum IssueStatus {
+  REPORTED
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum IssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+  EMERGENCY
+}
+
+enum IssueCategory {
+  PLUMBING
+  ELECTRICAL
+  CLEANLINESS
+  INTERNET
+  FURNITURE
+  SECURITY
+  NOISE
+  OTHER
+}
+
+enum IssueVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum AnnouncementCategory {
+  CLEANING_SCHEDULE
+  PEST_CONTROL
+  MAINTENANCE_NOTICE
+  WATER_ELECTRICITY
+  GENERAL
+}
+
+enum LostFoundStatus {
+  LOST
+  FOUND
+  CLAIMED
+  RETURNED
+}
+
+enum ClaimStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Hostel {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  capacity  Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  blocks        Block[]
+  users         User[]
+  issues        Issue[]
+  announcements Announcement[]
+
+  @@map("hostels")
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  name      String
+  hostelId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hostel Hostel  @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  users  User[]
+  issues Issue[]
+
+  @@unique([hostelId, name])
+  @@map("blocks")
+}
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  password          String?
+  googleId          String?   @unique
+  name              String
+  rollNumber        String    @unique
+  phone             String    @unique
+  emergencyContact  String
+  bloodGroup        String?
+  avatar            String?
+  role              Role      @default(STUDENT)
+  isVerified        Boolean   @default(false)
+  verificationToken String?
+  resetToken        String?
+  resetTokenExpiry  DateTime?
+  lastLogin         DateTime?
+  hostelId          String
+  blockId           String
+  roomNumber        String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  hostel         Hostel           @relation(fields: [hostelId], references: [id])
+  block          Block            @relation(fields: [blockId], references: [id])
+  reportedIssues Issue[]          @relation("ReportedBy")
+  assignedIssues Issue[]          @relation("AssignedTo")
+  comments       Comment[]
+  reactions      Reaction[]
+  notifications  Notification[]
+  lostFoundItems LostFound[]
+  claims         LostFoundClaim[]
+
+  @@index([email])
+  @@index([rollNumber])
+  @@index([hostelId])
+  @@index([role])
+  @@map("users")
+}
+
+model Issue {
+  id            String          @id @default(cuid())
+  title         String
+  description   String
+  category      IssueCategory
+  priority      IssuePriority
+  visibility    IssueVisibility @default(PUBLIC)
+  status        IssueStatus     @default(REPORTED)
+  images        String[]
+  videos        String[]
+  reportedById  String
+  assignedToId  String?
+  hostelId      String
+  blockId       String
+  roomNumber    String
+  isMerged      Boolean         @default(false)
+  parentIssueId String?
+  reportedAt    DateTime        @default(now())
+  assignedAt    DateTime?
+  inProgressAt  DateTime?
+  resolvedAt    DateTime?
+  closedAt      DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  reportedBy    User                 @relation("ReportedBy", fields: [reportedById], references: [id])
+  assignedTo    User?                @relation("AssignedTo", fields: [assignedToId], references: [id])
+  hostel        Hostel               @relation(fields: [hostelId], references: [id])
+  block         Block                @relation(fields: [blockId], references: [id])
+  parentIssue   Issue?               @relation("IssueMerges", fields: [parentIssueId], references: [id])
+  mergedIssues  Issue[]              @relation("IssueMerges")
+  statusHistory IssueStatusHistory[]
+  comments      Comment[]
+  reactions     Reaction[]
+
+  @@index([status])
+  @@index([category])
+  @@index([priority])
+  @@index([hostelId])
+  @@index([reportedById])
+  @@index([assignedToId])
+  @@index([createdAt])
+  @@map("issues")
+}
+
+model IssueStatusHistory {
+  id          String      @id @default(cuid())
+  issueId     String
+  status      IssueStatus
+  remarks     String?
+  changedById String
+  changedAt   DateTime    @default(now())
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId])
+  @@map("issue_status_history")
+}
+
+model Announcement {
+  id          String               @id @default(cuid())
+  title       String
+  content     String
+  category    AnnouncementCategory
+  priority    Boolean              @default(false)
+  images      String[]
+  attachments String[]
+  hostelId    String?
+  blockIds    String[]
+  targetRoles Role[]
+  publishAt   DateTime             @default(now())
+  expiresAt   DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  hostel    Hostel?            @relation(fields: [hostelId], references: [id])
+  comments  Comment[]
+  reactions Reaction[]
+  readBy    AnnouncementRead[]
+
+  @@index([publishAt])
+  @@index([hostelId])
+  @@map("announcements")
+}
+
+model AnnouncementRead {
+  id             String   @id @default(cuid())
+  announcementId String
+  userId         String
+  readAt         DateTime @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@map("announcement_reads")
+}
+
+model Comment {
+  id             String   @id @default(cuid())
+  content        String
+  userId         String
+  issueId        String?
+  announcementId String?
+  parentId       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id])
+  issue        Issue?        @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  announcement Announcement? @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  parent       Comment?      @relation("CommentReplies", fields: [parentId], references: [id])
+  replies      Comment[]     @relation("CommentReplies")
+
+  @@index([issueId])
+  @@index([announcementId])
+  @@index([userId])
+  @@map("comments")
+}
+
+model Reaction {
+  id             String   @id @default(cuid())
+  type           String
+  userId         String
+  issueId        String?
+  announcementId String?
+  createdAt      DateTime @default(now())
+
+  user         User          @relation(fields: [userId], references: [id])
+  issue        Issue?        @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  announcement Announcement? @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, issueId, type])
+  @@unique([userId, announcementId, type])
+  @@index([issueId])
+  @@index([announcementId])
+  @@map("reactions")
+}
+
+model LostFound {
+  id           String          @id @default(cuid())
+  itemName     String
+  description  String
+  category     String
+  location     String
+  date         DateTime
+  status       LostFoundStatus @default(LOST)
+  images       String[]
+  reportedById String
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  reportedBy User             @relation(fields: [reportedById], references: [id])
+  claims     LostFoundClaim[]
+
+  @@index([status])
+  @@index([reportedById])
+  @@map("lost_found")
+}
+
+model LostFoundClaim {
+  id                  String      @id @default(cuid())
+  itemId              String
+  claimantId          String
+  verificationDetails String
+  proofImage          String?
+  status              ClaimStatus @default(PENDING)
+  remarks             String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  item     LostFound @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  claimant User      @relation(fields: [claimantId], references: [id])
+
+  @@index([itemId])
+  @@index([claimantId])
+  @@index([status])
+  @@map("lost_found_claims")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean  @default(false)
+  userId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
