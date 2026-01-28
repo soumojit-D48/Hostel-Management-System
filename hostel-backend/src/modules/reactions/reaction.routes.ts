@@ -9,30 +9,30 @@ import {
 
 const router = Router();
 
-// All reaction routes require authentication
+
 router.use(authenticate as any);
 
-// POST / - Add/remove reaction (toggle)
+
 router.post(
   '/',
   validateRequest(reactionSchema),
   reactionController.addReaction as any
 );
 
-// GET /counts - Get reaction counts for resource
+
 router.get(
   '/counts',
   validateRequest(getReactionCountsSchema, 'query' as any),
   reactionController.getReactionCounts as any
 );
 
-// GET /user-reactions - Get user's reactions for resource
+
 router.get(
   '/user-reactions',
   reactionController.getUserReactions as any
 );
 
-// GET /resource - Get all reactions for resource (with pagination)
+
 router.get(
   '/resource',
   validateRequest({
@@ -44,7 +44,7 @@ router.get(
   reactionController.getReactionsByResource as any
 );
 
-// DELETE /:id - Remove specific reaction
+
 router.delete(
   '/:id',
   validateRequest({ id: 'string' } as any, 'params' as any),

@@ -35,7 +35,7 @@ class ReactionService {
       const resourceId = issueId || announcementId;
       const resourceType = issueId ? 'issue' : 'announcement';
 
-      // Validate resource exists and user has access
+      
       if (issueId) {
         const issue = await prisma.issue.findUnique({
           where: { id: issueId },
@@ -50,7 +50,7 @@ class ReactionService {
           throw new Error('Issue not found');
         }
 
-        // Check permission to react to issue
+        
         const user = await prisma.user.findUnique({
           where: { id: userId },
           select: { id: true, role: true }
@@ -60,7 +60,7 @@ class ReactionService {
           throw new Error('User not found');
         }
 
-        // Public issues OR own issues OR management/staff can react
+        
         const canReact = 
           issue.visibility === IssueVisibility.PUBLIC ||
           issue.reportedBy.id === userId ||
@@ -81,11 +81,11 @@ class ReactionService {
           throw new Error('Announcement not found');
         }
 
-        // All authenticated users can react to announcements
-        // No additional permission check needed
+        
+        
       }
 
-      // Check if user already reacted with this type on this resource
+      
       const whereClause = {
         userId,
         type,
@@ -100,7 +100,7 @@ class ReactionService {
       let reactionType = undefined;
 
       if (existingReaction) {
-        // Toggle off - remove existing reaction
+        
         await prisma.reaction.delete({
           where: { id: existingReaction.id }
         });
@@ -114,7 +114,7 @@ class ReactionService {
           reactionType: type,
         });
       } else {
-        // Create new reaction
+        
         await prisma.reaction.create({
           data: {
             type,
@@ -136,7 +136,7 @@ class ReactionService {
         });
       }
 
-      // Get updated counts
+      
       const counts = await this.getReactionCountsInternal(resourceId!, resourceType);
 
       return {
@@ -186,7 +186,7 @@ class ReactionService {
     userId: string
   ): Promise<string[]> {
     try {
-      // Validate resource exists and user has access
+      
       if (resourceType === 'issue') {
         const issue = await prisma.issue.findUnique({
           where: { id: resourceId },
@@ -201,7 +201,7 @@ class ReactionService {
           throw new Error('Issue not found');
         }
 
-        // Check permission to view reactions on issue
+        
         const user = await prisma.user.findUnique({
           where: { id: userId },
           select: { id: true, role: true }
@@ -211,7 +211,7 @@ class ReactionService {
           throw new Error('User not found');
         }
 
-        // Public issues OR own issues OR management/staff can view
+        
         const canView = 
           issue.visibility === IssueVisibility.PUBLIC ||
           issue.reportedBy.id === userId ||
@@ -232,11 +232,11 @@ class ReactionService {
           throw new Error('Announcement not found');
         }
 
-        // All authenticated users can view announcement reactions
-        // No additional permission check needed
+        
+        
       }
 
-      // Get user's reactions on this resource
+      
       const userReactions = await prisma.reaction.findMany({
         where: {
           userId,
@@ -283,7 +283,7 @@ class ReactionService {
     };
   }> {
     try {
-      // Validate resource exists and user has access
+      
       if (resourceType === 'issue') {
         const issue = await prisma.issue.findUnique({
           where: { id: resourceId },
@@ -298,8 +298,8 @@ class ReactionService {
           throw new Error('Issue not found');
         }
 
-        // Check permission to view reactions on issue
-        // For this method, we'll assume public access since it's used for displaying reactions
+        
+        
       }
 
       if (resourceType === 'announcement') {
@@ -319,7 +319,7 @@ class ReactionService {
         const { page, limit } = pagination;
         const skip = (page - 1) * limit;
 
-        // Get total count
+        
         const total = await prisma.reaction.count({
           where: {
             ...(resourceType === 'issue' 
@@ -328,7 +328,7 @@ class ReactionService {
           }
         });
 
-        // Get paginated reactions
+        
         const paginatedReactions = await prisma.reaction.findMany({
           where: {
             ...(resourceType === 'issue' 
@@ -354,7 +354,7 @@ class ReactionService {
 
         reactions = paginatedReactions as ReactionWithUser[];
 
-        // Calculate pagination
+        
         const totalPages = Math.ceil(total / limit);
         paginationInfo = {
           page,
@@ -365,7 +365,7 @@ class ReactionService {
           hasPrev: page > 1,
         };
       } else {
-        // Get all reactions
+        
         const allReactions = await prisma.reaction.findMany({
           where: {
             ...(resourceType === 'issue' 
@@ -390,7 +390,7 @@ class ReactionService {
         reactions = allReactions as ReactionWithUser[];
       }
 
-      // Get counts
+      
       const counts = await this.getReactionCountsInternal(resourceId, resourceType);
 
       return {
@@ -431,13 +431,13 @@ class ReactionService {
       }
     });
 
-    // Aggregate by type
+    
     const counts: Record<string, number> = {};
     reactions.forEach(reaction => {
       counts[reaction.type] = (counts[reaction.type] || 0) + 1;
     });
 
-    // Ensure all possible reaction types are included
+    
     const possibleTypes = ['helpful', 'urgent', 'resolved', 'watching'];
     possibleTypes.forEach(type => {
       if (!counts[type]) {
@@ -453,7 +453,7 @@ class ReactionService {
     userId: string
   ): Promise<void> {
     try {
-      // Get existing reaction
+      
       const existingReaction = await prisma.reaction.findUnique({
         where: { id: reactionId },
         include: {
@@ -467,7 +467,7 @@ class ReactionService {
         throw new Error('Reaction not found');
       }
 
-      // Verify reaction belongs to user OR user is management
+      
       const canDelete = 
         existingReaction.userId === userId ||
         existingReaction.user?.role === Role.MANAGEMENT;
@@ -476,7 +476,7 @@ class ReactionService {
         throw new Error('Not authorized to remove this reaction');
       }
 
-      // Delete reaction
+      
       await prisma.reaction.delete({
         where: { id: reactionId }
       });

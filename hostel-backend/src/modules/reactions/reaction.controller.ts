@@ -19,10 +19,10 @@ class ReactionController {
         return;
       }
 
-      // Validate request body
+      
       const validatedData: ReactionInput = req.body as ReactionInput;
 
-      // Add/remove reaction
+      
       const result = await reactionService.addReaction(
         validatedData,
         req.user.id
@@ -92,11 +92,11 @@ class ReactionController {
         return;
       }
 
-      // Validate query parameters
+      
       const validatedQuery: GetReactionCountsInput = req.query as any;
       const { issueId, announcementId } = validatedQuery;
 
-      // Determine resource type and ID
+      
       const resourceId = issueId || announcementId;
       const resourceType = issueId ? 'issue' : 'announcement';
 
@@ -111,7 +111,7 @@ class ReactionController {
         return;
       }
 
-      // Get reaction counts
+      
       const counts = await reactionService.getReactionCounts(
         resourceId,
         resourceType
@@ -170,7 +170,7 @@ class ReactionController {
 
       const { issueId, announcementId } = req.query;
 
-      // Determine resource type and ID
+      
       const resourceId = (issueId as string) || (announcementId as string);
       const resourceType = issueId ? 'issue' : 'announcement';
 
@@ -185,7 +185,7 @@ class ReactionController {
         return;
       }
 
-      // Get user's reactions on this resource
+      
       const userReactions = await reactionService.getUserReactions(
         resourceId,
         resourceType,
@@ -258,7 +258,7 @@ class ReactionController {
 
       const { issueId, announcementId, page, limit } = req.query;
 
-      // Determine resource type and ID
+      
       const resourceId = (issueId as string) || (announcementId as string);
       const resourceType = issueId ? 'issue' : 'announcement';
 
@@ -273,13 +273,13 @@ class ReactionController {
         return;
       }
 
-      // Prepare pagination
+      
       const pagination = page && limit ? {
         page: parseInt(page as string),
         limit: parseInt(limit as string)
       } : undefined;
 
-      // Get reactions for this resource
+      
       const result = await reactionService.getReactionsByResource(
         resourceId,
         resourceType,
@@ -343,7 +343,7 @@ class ReactionController {
 
 const reactionId = req.params.id as string;
       
-      // Remove reaction
+      
       await reactionService.removeReaction(reactionId, req.user.id);
 
       res.status(200).json({
