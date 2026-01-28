@@ -10,6 +10,8 @@ import { logger } from '../../shared/services/logger.service';
 import { cacheService } from '../../shared/services/cache.service';
 import { config } from '../../shared/config/config';
 import { CreateAnnouncementInput, UpdateAnnouncementInput, GetAnnouncementsInput } from './announcement.validation';
+import { notificationService } from '../notifications/notification.service';
+import { emitToAll, emitToHostel } from '../../shared/socket';
 
 interface AnnouncementWithRelations extends Announcement {
   hostel?: {
@@ -45,7 +47,7 @@ class AnnouncementService {
     managementUserId: string
   ): Promise<AnnouncementWithRelations> {
     try {
-      // Validate management user
+      
       const managementUser = await this.prisma.user.findUnique({
         where: { id: managementUserId, role: Role.MANAGEMENT }
       });
@@ -54,7 +56,7 @@ class AnnouncementService {
         throw new Error('Only management users can create announcements');
       }
 
-      // Validate hostel if specified
+      
       if (data.hostelId) {
         const hostel = await this.prisma.hostel.findUnique({
           where: { id: data.hostelId }
@@ -64,7 +66,7 @@ class AnnouncementService {
         }
       }
 
-      // Validate blocks if specified
+      
       if (data.blockIds && data.blockIds.length > 0) {
         const blocks = await this.prisma.block.findMany({
           where: { id: { in: data.blockIds } }
@@ -74,7 +76,7 @@ class AnnouncementService {
         }
       }
 
-      // Process uploaded images
+      
       const imageUrls: string[] = [];
       if (files.images && files.images.length > 0) {
         if (files.images.length > config.MAX_IMAGES_PER_ANNOUNCEMENT) {
@@ -91,7 +93,7 @@ class AnnouncementService {
         }
       }
 
-      // Process uploaded attachments (PDFs, documents)
+      
       const attachmentUrls: string[] = [];
       if (files.attachments && files.attachments.length > 0) {
         if (files.attachments.length > config.MAX_ATTACHMENTS_PER_ANNOUNCEMENT) {
@@ -99,17 +101,17 @@ class AnnouncementService {
         }
 
         for (const attachment of files.attachments) {
-          // Validate attachment type (PDF, DOC, etc.)
+          
           const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
           if (!allowedTypes.includes(attachment.mimetype)) {
             throw new Error('Invalid attachment type. Only PDF and Word documents are allowed.');
           }
 
-          if (attachment.size > 10 * 1024 * 1024) { // 10MB limit
+          if (attachment.size > 10 * 1024 * 1024) { 
             throw new Error('Attachment size too large. Maximum size is 10MB.');
           }
 
-          // Upload attachment to Cloudinary
+          
           const result = await new Promise<any>((resolve, reject) => {
             const cloudinary = require('../../config/cloudinary').cloudinary;
             const uploadStream = cloudinary.uploader.upload_stream(
@@ -130,7 +132,7 @@ class AnnouncementService {
         }
       }
 
-      // Create announcement
+      
       const announcement = await this.prisma.announcement.create({
         data: {
           title: data.title,
@@ -161,10 +163,10 @@ class AnnouncementService {
         }
       });
 
-      // Calculate affected users count
+      
       const affectedUsersCount = await this.calculateAffectedUsersCount(announcement);
 
-      // Log announcement creation
+      
       logger.info({
         message: 'Announcement created successfully',
         announcementId: announcement.id,
@@ -175,8 +177,39 @@ class AnnouncementService {
         createdBy: managementUserId,
       });
 
-      // Invalidate cache for announcements
+      
       await this.invalidateAnnouncementsCache();
+
+      const usersToNotify = await this.prisma.user.findMany({
+        where: {},
+        select: { id: true, hostelId: true, blockId: true, role: true },
+      });
+
+      for (const user of usersToNotify) {
+        const now = new Date();
+        const canAccess =
+          (announcement.hostelId === null || announcement.hostelId === user.hostelId) &&
+          (announcement.blockIds.length === 0 || announcement.blockIds.includes(user.blockId || '')) &&
+          (announcement.targetRoles.length === 0 || announcement.targetRoles.includes(user.role)) &&
+          announcement.publishAt <= now &&
+          (announcement.expiresAt === null || announcement.expiresAt > now);
+
+        if (canAccess) {
+          await notificationService.createNotification(
+            user.id,
+            'announcement',
+            announcement.title,
+            announcement.content.slice(0, 140),
+            `/announcements/${announcement.id}`
+          );
+        }
+      }
+
+      if (announcement.hostelId) {
+        emitToHostel(announcement.hostelId, 'announcement_created', announcement);
+      } else {
+        emitToAll('announcement_created', announcement);
+      }
 
       return {
         ...announcement,
@@ -206,7 +239,7 @@ class AnnouncementService {
       const { page, limit, category, priority, unreadOnly, startDate, endDate } = filters;
       const skip = (page - 1) * limit;
 
-      // Get user details for targeting
+      
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -220,7 +253,7 @@ class AnnouncementService {
         throw new Error('User not found');
       }
 
-      // Build where clause for targeting
+      
       const now = new Date();
       const where: any = {
         publishAt: { lte: now },
@@ -229,29 +262,29 @@ class AnnouncementService {
           { expiresAt: { gt: now } }
         ],
         AND: [
-          // Targeting logic
+          
           {
             OR: [
-              { hostelId: null }, // All hostels
-              { hostelId: user.hostelId }, // User's hostel
+              { hostelId: null }, 
+              { hostelId: user.hostelId }, 
             ]
           },
           {
             OR: [
-              { blockIds: { isEmpty: true } }, // All blocks
-              { blockIds: { has: user.blockId } }, // User's block
+              { blockIds: { isEmpty: true } }, 
+              { blockIds: { has: user.blockId } }, 
             ]
           },
           {
             OR: [
-              { targetRoles: { isEmpty: true } }, // All roles
-              { targetRoles: { has: user.role } }, // User's role
+              { targetRoles: { isEmpty: true } }, 
+              { targetRoles: { has: user.role } }, 
             ]
           }
         ]
       };
 
-      // Apply filters
+      
       if (category) {
         where.category = category;
       }
@@ -268,10 +301,10 @@ class AnnouncementService {
         where.publishAt = { ...where.publishAt, lte: new Date(endDate) };
       }
 
-      // Get total count
+      
       const total = await this.prisma.announcement.count({ where });
 
-      // Get announcements with read status
+      
       const announcements = await this.prisma.announcement.findMany({
         where,
         include: {
@@ -300,19 +333,19 @@ class AnnouncementService {
         take: limit,
       });
 
-      // Mark read status
+      
       const announcementsWithReadStatus = announcements.map(announcement => ({
         ...announcement,
         isRead: announcement.readBy.length > 0,
-        readBy: undefined, // Remove readBy from response
+        readBy: undefined, 
       }));
 
-      // Filter by unread status if requested
+      
       const filteredAnnouncements = unreadOnly
         ? announcementsWithReadStatus.filter(a => !a.isRead)
         : announcementsWithReadStatus;
 
-      // Get unread count
+      
       const unreadCount = await this.prisma.announcement.count({
         where: {
           ...where,
@@ -322,7 +355,7 @@ class AnnouncementService {
         }
       });
 
-      // Calculate pagination
+      
       const totalPages = Math.ceil(total / limit);
       const pagination = {
         page,
@@ -356,7 +389,7 @@ class AnnouncementService {
 
   async markAsRead(announcementId: string, userId: string): Promise<void> {
     try {
-      // Verify announcement exists and user can access it
+      
       const announcement = await this.prisma.announcement.findUnique({
         where: { id: announcementId }
       });
@@ -365,7 +398,7 @@ class AnnouncementService {
         throw new Error('Announcement not found');
       }
 
-      // Check if user can access this announcement (same targeting logic as getAnnouncements)
+      
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -391,7 +424,7 @@ class AnnouncementService {
         throw new Error('User cannot access this announcement');
       }
 
-      // Create or update read record
+      
       await this.prisma.announcementRead.upsert({
         where: {
           announcementId_userId: {
@@ -409,7 +442,7 @@ class AnnouncementService {
         }
       });
 
-      // Invalidate cache for this user's announcements
+      
       await this.invalidateUserAnnouncementsCache(userId);
     } catch (error) {
       logger.error({
@@ -428,7 +461,7 @@ class AnnouncementService {
 
   async getUnreadCount(userId: string): Promise<number> {
     try {
-      // Get user details for targeting
+      
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -442,7 +475,7 @@ class AnnouncementService {
         throw new Error('User not found');
       }
 
-      // Build where clause for targeting
+      
       const now = new Date();
       const where: any = {
         publishAt: { lte: now },
@@ -494,17 +527,17 @@ class AnnouncementService {
     try {
       const where: any = {};
 
-      // Hostel targeting
+      
       if (announcement.hostelId) {
         where.hostelId = announcement.hostelId;
       }
 
-      // Block targeting
+      
       if (announcement.blockIds.length > 0) {
         where.blockId = { in: announcement.blockIds };
       }
 
-      // Role targeting
+      
       if (announcement.targetRoles.length > 0) {
         where.role = { in: announcement.targetRoles };
       }
@@ -522,7 +555,7 @@ class AnnouncementService {
 
   private async invalidateAnnouncementsCache(): Promise<void> {
     try {
-      // Invalidate general announcements cache
+      
       await cacheService.del('announcements:*');
     } catch (error) {
       logger.error({
@@ -534,7 +567,7 @@ class AnnouncementService {
 
   private async invalidateUserAnnouncementsCache(userId: string): Promise<void> {
     try {
-      // Invalidate user-specific announcements cache
+      
       await cacheService.del(`announcements:user:${userId}:*`);
       await cacheService.del(`announcements:user:${userId}:unread`);
     } catch (error) {

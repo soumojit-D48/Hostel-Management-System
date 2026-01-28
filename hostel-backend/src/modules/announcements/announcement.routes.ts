@@ -9,7 +9,7 @@ import { Role } from '@prisma/client';
 
 const router = Router();
 
-// POST / - Create announcement (Management only)
+
 router.post(
   '/',
   authenticate as any,
@@ -20,7 +20,7 @@ router.post(
   announcementController.createAnnouncement as any
 );
 
-// GET / - Get announcements (All authenticated users)
+
 router.get(
   '/',
   authenticate as any,
@@ -28,14 +28,14 @@ router.get(
   announcementController.getAnnouncements as any
 );
 
-// POST /:id/mark-read - Mark announcement as read (All authenticated users)
+
 router.post(
   '/:id/mark-read',
   authenticate as any,
   announcementController.markAsRead as any
 );
 
-// GET /unread-count - Get unread count (All authenticated users)
+
 router.get(
   '/unread-count',
   authenticate as any,

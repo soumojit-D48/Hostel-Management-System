@@ -8,7 +8,7 @@ import { Role } from '@prisma/client';
 class AnnouncementController {
   async createAnnouncement(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      // Verify user is management
+      
       if (!req.user || req.user.role !== 'MANAGEMENT') {
         res.status(403).json({
           success: false,
@@ -20,16 +20,16 @@ class AnnouncementController {
         return;
       }
 
-      // Validate request body
+      
       const validatedData: CreateAnnouncementInput = req.body as CreateAnnouncementInput;
 
-      // Extract files from request
+      
       const files = {
         images: Array.isArray(req.files) ? undefined : req.files?.images as Express.Multer.File[] | undefined,
         attachments: Array.isArray(req.files) ? undefined : req.files?.attachments as Express.Multer.File[] | undefined,
       };
 
-      // Create announcement
+      
       const announcement = await announcementService.createAnnouncement(
         validatedData,
         files,
@@ -111,10 +111,10 @@ class AnnouncementController {
         return;
       }
 
-      // Validate query parameters
+      
       const filters: GetAnnouncementsInput = req.query as any;
 
-      // Get announcements
+      
       const result = await announcementService.getAnnouncements(
         req.user.id,
         req.user.role as Role,
@@ -176,7 +176,7 @@ class AnnouncementController {
 
       const announcementId = req.params.id as string;
 
-      // Mark as read
+      
       await announcementService.markAsRead(announcementId, req.user.id);
 
       res.status(200).json({
@@ -243,7 +243,7 @@ class AnnouncementController {
         return;
       }
 
-      // Get unread count
+      
       const unreadCount = await announcementService.getUnreadCount(req.user.id);
 
       res.status(200).json({
