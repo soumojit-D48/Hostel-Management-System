@@ -31,7 +31,7 @@ passport.use(new JwtStrategy({
   }
 }));
 
-// Only configure Google OAuth if environment variables are set
+
 if (config.GOOGLE_CLIENT_ID && config.GOOGLE_CLIENT_SECRET && config.GOOGLE_CALLBACK_URL) {
   passport.use(new GoogleStrategy({
     clientID: config.GOOGLE_CLIENT_ID,
