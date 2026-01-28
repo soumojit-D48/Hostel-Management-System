@@ -8,8 +8,11 @@ import { logger } from './shared/services/logger.service';
 import { errorHandler } from './shared/middleware/error.middleware';
 import { notFoundHandler } from './shared/middleware/notFound.middleware';
 import routes from './routes';
+import { passport } from './config/passport';
 
 const app = express();
+
+app.use(passport.initialize());
 
 app.use(helmet({
   contentSecurityPolicy: {

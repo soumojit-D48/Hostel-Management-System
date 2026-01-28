@@ -307,6 +307,24 @@ class AuthService {
       return { message: 'Logout successful' };
     }
   }
+
+  generateTokenForOAuthUser(user: any): { token: string; user: any } {
+    const token = this.generateToken(user.id, user.email, user.role);
+    
+    return {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        avatar: user.avatar,
+        hostel: user.hostel,
+        block: user.block,
+        roomNumber: user.roomNumber
+      }
+    };
+  }
 }
 
 export const authService = new AuthService();
