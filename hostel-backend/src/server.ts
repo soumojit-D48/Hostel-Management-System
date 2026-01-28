@@ -1,8 +1,12 @@
+import http from 'http';
 import app from './app';
 import { config } from './shared/config/config';
 import { logger } from './shared/services/logger.service';
 import { connectDatabase } from './config/database';
 import { connectRedis, disconnectRedis } from './config/redis';
+import { startNotificationArchivalJob } from './jobs/notification-archival.job';
+import { initSocketServer } from './shared/socket';
+import { startEmailWorker } from './jobs/workers/email.worker';
 
 const startServer = async (): Promise<void> => {
   try {
@@ -19,7 +23,11 @@ const startServer = async (): Promise<void> => {
       });
     }
     
-    const server = app.listen(config.PORT, () => {
+    const server = http.createServer(app);
+
+    await initSocketServer(server);
+
+    server.listen(config.PORT, () => {
       logger.info({
         message: 'Server started successfully',
         server: {
@@ -32,6 +40,8 @@ const startServer = async (): Promise<void> => {
           api: `${config.BACKEND_URL}/api/v1`,
         },
       });
+      startNotificationArchivalJob();
+      startEmailWorker();
     });
 
     const gracefulShutdown = async (signal: string) => {

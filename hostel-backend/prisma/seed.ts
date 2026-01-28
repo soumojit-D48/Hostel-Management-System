@@ -7,7 +7,6 @@ const seedData = async () => {
   try {
     console.log('Starting database seeding...');
 
-    // Clean existing data
     await prisma.notification.deleteMany();
     await prisma.lostFoundClaim.deleteMany();
     await prisma.lostFound.deleteMany();
@@ -22,8 +21,6 @@ const seedData = async () => {
     await prisma.hostel.deleteMany();
 
     console.log('Cleaned existing data');
-
-    // Create Hostels
     const hostels = await Promise.all([
       prisma.hostel.create({
         data: {
@@ -50,9 +47,7 @@ const seedData = async () => {
 
     console.log(`Created ${hostels.length} hostels`);
 
-    // Create Blocks
     const blocks = await Promise.all([
-      // Boys Hostel A blocks
       prisma.block.create({
         data: {
           name: 'A-Wing',
@@ -71,7 +66,6 @@ const seedData = async () => {
           hostelId: hostels[0].id,
         },
       }),
-      // Girls Hostel B blocks
       prisma.block.create({
         data: {
           name: 'Ground Floor',
@@ -84,7 +78,6 @@ const seedData = async () => {
           hostelId: hostels[1].id,
         },
       }),
-      // International Hostel C blocks
       prisma.block.create({
         data: {
           name: 'East Wing',
@@ -101,11 +94,9 @@ const seedData = async () => {
 
     console.log(`Created ${blocks.length} blocks`);
 
-    // Create Users
     const hashedPassword = await bcrypt.hash('admin123', 10);
 
     const users = await Promise.all([
-      // Management user
       prisma.user.create({
         data: {
           email: 'admin@hostel.com',
@@ -121,7 +112,6 @@ const seedData = async () => {
           roomNumber: 'OFFICE-001',
         },
       }),
-      // Staff users
       prisma.user.create({
         data: {
           email: 'maintenance@hostel.com',
@@ -152,7 +142,6 @@ const seedData = async () => {
           roomNumber: 'ELEC-001',
         },
       }),
-      // Student users
       prisma.user.create({
         data: {
           email: 'student1@college.edu',
@@ -202,7 +191,6 @@ const seedData = async () => {
 
     console.log(`Created ${users.length} users`);
 
-    // Create Sample Issues
     const issues = await Promise.all([
       prisma.issue.create({
         data: {
@@ -265,7 +253,7 @@ const seedData = async () => {
 
     console.log(`Created ${issues.length} issues`);
 
-    // Create Status History for issues
+    await Promise.all([
     await Promise.all([
       prisma.issueStatusHistory.create({
         data: {
@@ -296,7 +284,6 @@ const seedData = async () => {
       }),
     ]);
 
-    // Create Sample Announcements
     const announcements = await Promise.all([
       prisma.announcement.create({
         data: {
@@ -306,11 +293,11 @@ const seedData = async () => {
           priority: true,
           images: [],
           attachments: [],
-          hostelId: null, // All hostels
+          hostelId: null
           blockIds: [],
           targetRoles: [Role.STUDENT, Role.STAFF],
           publishAt: new Date(),
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
         },
       }),
       prisma.announcement.create({
@@ -321,18 +308,17 @@ const seedData = async () => {
           priority: false,
           images: [],
           attachments: [],
-          hostelId: hostels[0].id, // Boys Hostel A only
-          blockIds: [blocks[0].id, blocks[1].id], // A-Wing and B-Wing only
+          hostelId: hostels[0].id,
+          blockIds: [blocks[0].id, blocks[1].id]
           targetRoles: [Role.STUDENT],
-          publishAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+          publishAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
         },
       }),
     ]);
 
     console.log(`Created ${announcements.length} announcements`);
 
-    // Create Lost & Found Items
     const lostFoundItems = await Promise.all([
       prisma.lostFound.create({
         data: {
@@ -340,7 +326,7 @@ const seedData = async () => {
           description: 'Blue Nike backpack with laptop compartment. Contains books and notebooks.',
           category: 'Clothing',
           location: 'A-Wing Common Room',
-          date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+          date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
           status: 'LOST',
           images: [],
           reportedById: users[3].id,
@@ -352,7 +338,7 @@ const seedData = async () => {
           description: 'Silver analog watch with leather strap. Found near cafeteria.',
           category: 'Electronics',
           location: 'Main Cafeteria',
-          date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+          date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
           status: 'FOUND',
           images: [],
           reportedById: users[4].id,
