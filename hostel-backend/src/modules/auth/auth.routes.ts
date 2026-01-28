@@ -16,7 +16,7 @@ router.post('/forgot-password', validateRequest(forgotPasswordSchema), authContr
 router.post('/reset-password', validateRequest(resetPasswordSchema), authController.resetPassword);
 router.post('/logout', authenticate as any, authController.logout as any);
 
-// Google OAuth routes (only if configured)
+
 if (config.GOOGLE_CLIENT_ID && config.GOOGLE_CLIENT_SECRET && config.GOOGLE_CALLBACK_URL) {
   router.get('/google', passport.authenticate('google', { 
     scope: ['profile', 'email'],
@@ -32,7 +32,7 @@ if (config.GOOGLE_CLIENT_ID && config.GOOGLE_CLIENT_SECRET && config.GOOGLE_CALL
       const user = req.user;
       const { token } = authService.generateTokenForOAuthUser(user);
       
-      // Redirect to frontend with token
+      
       res.redirect(`${config.FRONTEND_URL}/auth/callback?token=${encodeURIComponent(token)}&provider=google`);
     }
   );

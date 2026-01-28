@@ -36,7 +36,7 @@ class IssueController {
       const files = req.files as { images?: Express.Multer.File[]; videos?: Express.Multer.File[] };
       const userId = req.user!.id;
 
-      // Validate file counts
+      
       const imageCount = files.images?.length || 0;
       const videoCount = files.videos?.length || 0;
 
@@ -82,7 +82,7 @@ class IssueController {
         validatedData.limit?.toString() || '20'
       );
 
-      // Create filters object
+      
       const queryData: IssueQueryData = {
         page: validatedData.page || 1,
         limit: validatedData.limit || 20,
@@ -162,12 +162,12 @@ class IssueController {
         validatedData.limit?.toString()
       );
 
-      // Create filters object
+      
       const searchFilters: any = {
         ...filters
       };
       
-      // Convert date strings to Date objects if they exist
+      
       if (filters.dateFrom) {
         searchFilters.dateFrom = new Date(filters.dateFrom);
       }
@@ -256,7 +256,7 @@ class IssueController {
       const issueId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const userRole = req.user?.role as any;
 
-      // Verify user has MANAGEMENT role
+      
       if (userRole !== Role.MANAGEMENT) {
         res.status(403).json(
           successResponse(null, 'Only management can find similar issues')
@@ -284,7 +284,7 @@ class IssueController {
       const issueId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const managementUserId = req.user!.id;
 
-      // Validate required fields
+      
       if (!duplicateIssueIds || !Array.isArray(duplicateIssueIds) || duplicateIssueIds.length === 0) {
         res.status(400).json(
           successResponse(null, 'Duplicate issue IDs array is required')

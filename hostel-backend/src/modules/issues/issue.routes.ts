@@ -16,7 +16,7 @@ import { Role } from '@prisma/client';
 
 const router = Router();
 
-// All issue routes require authentication
+
 router.use(authenticate as any);
 
 router.post(

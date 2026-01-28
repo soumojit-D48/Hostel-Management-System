@@ -1,9 +1,9 @@
 import { prisma } from '../../config/database';
-import { 
-  IssueStatus, 
-  IssuePriority, 
-  IssueCategory, 
-  IssueVisibility, 
+import {
+  IssueStatus,
+  IssuePriority,
+  IssueCategory,
+  IssueVisibility,
   Role,
   type User,
   type Issue,
@@ -13,11 +13,11 @@ import {
 import { uploadService } from '../../shared/services/upload.service';
 import { logger } from '../../shared/services/logger.service';
 import { AuthenticatedRequest } from '../../shared/types';
-import { 
-  CreateIssueInput, 
-  GetIssuesInput, 
-  GetIssueByIdInput, 
-  SearchIssuesInput 
+import {
+  CreateIssueInput,
+  GetIssuesInput,
+  GetIssueByIdInput,
+  SearchIssuesInput
 } from './issue.validation';
 import {
   calculateTextSimilarity,
@@ -26,6 +26,8 @@ import {
   filterBySimilarity
 } from '../../shared/utils/similarity';
 import { ValidationError, NotFoundError, ForbiddenError } from '../../shared/middleware/error.middleware';
+import { notificationService } from '../notifications/notification.service';
+import { emitToHostel } from '../../shared/socket';
 
 interface IssueFilters {
   status?: IssueStatus | undefined;
@@ -53,7 +55,6 @@ class IssueService {
     userId: string
   ): Promise<Issue> {
     try {
-      // Get user details for auto-filling location info
       const user = await prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -73,7 +74,6 @@ class IssueService {
         throw new ValidationError('User not found');
       }
 
-      // Process uploaded images
       const imageUrls: string[] = [];
       if (files.images) {
         for (const image of files.images) {
@@ -82,7 +82,6 @@ class IssueService {
         }
       }
 
-      // Process uploaded videos
       const videoUrls: string[] = [];
       if (files.videos) {
         for (const video of files.videos) {
@@ -91,7 +90,6 @@ class IssueService {
         }
       }
 
-      // Create issue with all data
       const issue = await prisma.issue.create({
         data: {
           ...data,
@@ -127,7 +125,6 @@ class IssueService {
         }
       });
 
-      // Create initial status history entry
       await prisma.issueStatusHistory.create({
         data: {
           issueId: issue.id,
@@ -146,6 +143,17 @@ class IssueService {
           reportedBy: userId,
         }
       });
+
+      await notificationService.createNotification(
+        userId,
+        'issue_created',
+        'Issue reported successfully',
+        `Your issue "${issue.title}" has been created with status REPORTED.`
+      );
+
+      if (issue.hostelId) {
+        emitToHostel(issue.hostelId, 'issue_created', issue);
+      }
 
       return issue;
     } catch (error) {
@@ -175,11 +183,10 @@ class IssueService {
       const { page, limit, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
       const skip = (page - 1) * limit;
 
-      // Build where clause based on user role
+      
       let whereClause: any = {};
 
       if (userRole === Role.STUDENT) {
-        // Students see their own issues + public issues from same hostel
         const user = await prisma.user.findUnique({
           where: { id: userId },
           select: { hostelId: true }
@@ -187,27 +194,26 @@ class IssueService {
 
         whereClause = {
           OR: [
-            { reportedById: userId }, // Own issues (any visibility)
-            { 
+            { reportedById: userId },
+            {
               visibility: IssueVisibility.PUBLIC,
-              hostelId: user?.hostelId // Public issues from same hostel
+              hostelId: user?.hostelId
             }
           ]
         };
       } else if (userRole === Role.STAFF) {
-        // Staff see assigned issues + public issues
         whereClause = {
           OR: [
-            { assignedToId: userId }, // Assigned issues
-            { visibility: IssueVisibility.PUBLIC } // All public issues
+            { assignedToId: userId },
+            { visibility: IssueVisibility.PUBLIC }
           ]
         };
       } else if (userRole === Role.MANAGEMENT) {
-        // Management sees all issues
+        
         whereClause = {};
       }
 
-      // Apply filters
+      
       if (filters.status) {
         whereClause.status = filters.status;
       }
@@ -252,13 +258,13 @@ class IssueService {
         }
       }
 
-      // Exclude merged issues from main listing
+      
       whereClause.isMerged = false;
 
-      // Get total count for pagination
+      
       const total = await prisma.issue.count({ where: whereClause });
 
-      // Get issues with pagination
+      
       const issues = await prisma.issue.findMany({
         where: whereClause,
         include: {
@@ -442,19 +448,19 @@ class IssueService {
         throw new NotFoundError('Issue not found');
       }
 
-      // Check visibility permissions
+      
       if (issue.visibility === IssueVisibility.PRIVATE) {
-        const hasAccess = 
-          issue.reportedById === userId || // Reporter
-          (userRole === Role.MANAGEMENT) || // Management
-          (issue.assignedToId === userId); // Assigned staff
+        const hasAccess =
+          issue.reportedById === userId || 
+          (userRole === Role.MANAGEMENT) || 
+          (issue.assignedToId === userId); 
 
         if (!hasAccess) {
           throw new ForbiddenError('Access denied to this private issue');
         }
       }
 
-      // If this is a merged issue, return the parent issue instead
+      
       if (issue.isMerged && issue.parentIssueId) {
         return this.getIssueById(issue.parentIssueId, userId, userRole);
       }
@@ -482,7 +488,7 @@ class IssueService {
     }
   }
 
-    async searchIssues(
+  async searchIssues(
     query: string,
     filters: any,
     userId: string,
@@ -536,7 +542,7 @@ class IssueService {
         throw new NotFoundError('Issue not found');
       }
 
-      // Validate status transitions based on role and current status
+      
       const isValidTransition = this.validateStatusTransition(
         currentIssue.status,
         newStatus,
@@ -548,7 +554,7 @@ class IssueService {
         throw new ValidationError(isValidTransition.error || 'Invalid status transition');
       }
 
-      // Prepare update data with appropriate timestamp
+      
       const updateData: any = { status: newStatus };
       const now = new Date();
 
@@ -567,7 +573,7 @@ class IssueService {
           break;
       }
 
-      // Update issue status
+      
       const updatedIssue = await prisma.issue.update({
         where: { id: issueId },
         data: updateData,
@@ -603,7 +609,7 @@ class IssueService {
         }
       });
 
-      // Create status history entry
+      
       await prisma.issueStatusHistory.create({
         data: {
           issueId,
@@ -624,6 +630,17 @@ class IssueService {
           remarks,
         }
       });
+
+      await notificationService.createNotification(
+        currentIssue.reportedById,
+        'issue_status_updated',
+        'Issue status updated',
+        `Status for your issue has been updated to ${newStatus}.`
+      );
+
+      if (updatedIssue.hostelId) {
+        emitToHostel(updatedIssue.hostelId, 'issue_status_updated', updatedIssue);
+      }
 
       return updatedIssue;
     } catch (error) {
@@ -657,7 +674,7 @@ class IssueService {
     managementUserId: string
   ): Promise<Issue> {
     try {
-      // Verify assigned staff exists and has STAFF role
+      
       const assignedStaff = await prisma.user.findUnique({
         where: { id: assignedToId },
         select: {
@@ -677,7 +694,7 @@ class IssueService {
         throw new ValidationError('Can only assign issues to staff members');
       }
 
-      // Get current issue
+      
       const currentIssue = await prisma.issue.findUnique({
         where: { id: issueId },
         select: {
@@ -691,17 +708,17 @@ class IssueService {
         throw new NotFoundError('Issue not found');
       }
 
-      // Prepare update data
+      
       const updateData: any = { assignedToId };
       const now = new Date();
 
-      // If issue is currently REPORTED, change status to ASSIGNED and set timestamp
+      
       if (currentIssue.status === IssueStatus.REPORTED) {
         updateData.status = IssueStatus.ASSIGNED;
         updateData.assignedAt = now;
       }
 
-      // Update issue
+      
       const updatedIssue = await prisma.issue.update({
         where: { id: issueId },
         data: updateData,
@@ -737,7 +754,7 @@ class IssueService {
         }
       });
 
-      // Create status history entry
+      
       await prisma.issueStatusHistory.create({
         data: {
           issueId,
@@ -758,6 +775,17 @@ class IssueService {
           note,
         }
       });
+
+      await notificationService.createNotification(
+        assignedToId,
+        'issue_assigned',
+        'New issue assigned',
+        `You have been assigned a new issue "${updatedIssue.title}".`
+      );
+
+      if (updatedIssue.hostelId) {
+        emitToHostel(updatedIssue.hostelId, 'issue_assigned', updatedIssue);
+      }
 
       return updatedIssue;
     } catch (error) {
@@ -788,16 +816,16 @@ class IssueService {
     userRole: Role,
     isAssignedStaff: boolean
   ): { valid: boolean; error?: string } {
-    // Define allowed transitions
+    
     const allowedTransitions: Record<IssueStatus, IssueStatus[]> = {
       [IssueStatus.REPORTED]: [IssueStatus.ASSIGNED],
-      [IssueStatus.ASSIGNED]: [IssueStatus.IN_PROGRESS, IssueStatus.REPORTED], // Allow going back for management
-      [IssueStatus.IN_PROGRESS]: [IssueStatus.RESOLVED, IssueStatus.ASSIGNED], // Allow going back for management
-      [IssueStatus.RESOLVED]: [IssueStatus.CLOSED, IssueStatus.IN_PROGRESS], // Allow reopening
-      [IssueStatus.CLOSED]: [IssueStatus.REPORTED], // Allow reopening by management
+      [IssueStatus.ASSIGNED]: [IssueStatus.IN_PROGRESS, IssueStatus.REPORTED], 
+      [IssueStatus.IN_PROGRESS]: [IssueStatus.RESOLVED, IssueStatus.ASSIGNED], 
+      [IssueStatus.RESOLVED]: [IssueStatus.CLOSED, IssueStatus.IN_PROGRESS], 
+      [IssueStatus.CLOSED]: [IssueStatus.REPORTED], 
     };
 
-    // Check if transition is allowed
+    
     if (!allowedTransitions[currentStatus].includes(newStatus)) {
       return {
         valid: false,
@@ -805,10 +833,10 @@ class IssueService {
       };
     }
 
-    // Role-based permissions
+    
     switch (newStatus) {
       case IssueStatus.ASSIGNED:
-        // Only MANAGEMENT can assign issues
+        
         if (userRole !== Role.MANAGEMENT) {
           return {
             valid: false,
@@ -818,8 +846,8 @@ class IssueService {
         break;
 
       case IssueStatus.IN_PROGRESS:
-        // STAFF can only update to IN_PROGRESS if assigned to them
-        // MANAGEMENT can always update
+        
+        
         if (userRole === Role.STAFF && !isAssignedStaff) {
           return {
             valid: false,
@@ -829,8 +857,8 @@ class IssueService {
         break;
 
       case IssueStatus.RESOLVED:
-        // STAFF can only resolve if assigned to them
-        // MANAGEMENT can always resolve
+        
+        
         if (userRole === Role.STAFF && !isAssignedStaff) {
           return {
             valid: false,
@@ -840,7 +868,7 @@ class IssueService {
         break;
 
       case IssueStatus.CLOSED:
-        // Only MANAGEMENT can close issues
+        
         if (userRole !== Role.MANAGEMENT) {
           return {
             valid: false,
@@ -850,7 +878,7 @@ class IssueService {
         break;
 
       case IssueStatus.REPORTED:
-        // Only MANAGEMENT can reopen (change from CLOSED to REPORTED)
+        
         if (userRole !== Role.MANAGEMENT) {
           return {
             valid: false,
@@ -865,7 +893,7 @@ class IssueService {
 
   async findSimilarIssues(issueId: string): Promise<any[]> {
     try {
-      // Fetch the current issue
+      
       const currentIssue = await prisma.issue.findUnique({
         where: { id: issueId },
         select: {
@@ -883,22 +911,22 @@ class IssueService {
         throw new NotFoundError('Issue not found');
       }
 
-      // Only look for similar issues if current issue is REPORTED or ASSIGNED
+      
       if (currentIssue.status !== IssueStatus.REPORTED && currentIssue.status !== IssueStatus.ASSIGNED) {
         return [];
       }
 
-      // Query for potential duplicates with same category and location
+      
       const potentialDuplicates = await prisma.issue.findMany({
         where: {
-          id: { not: issueId }, // Exclude current issue
+          id: { not: issueId }, 
           category: currentIssue.category,
           hostelId: currentIssue.hostelId,
           blockId: currentIssue.blockId,
-          status: { in: [IssueStatus.REPORTED, IssueStatus.ASSIGNED] }, // Only active issues
-          isMerged: false, // Exclude already merged issues
+          status: { in: [IssueStatus.REPORTED, IssueStatus.ASSIGNED] }, 
+          isMerged: false, 
           createdAt: {
-            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
+            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) 
           }
         },
         select: {
@@ -912,10 +940,10 @@ class IssueService {
         orderBy: {
           createdAt: 'desc'
         },
-        take: 20 // Limit to 20 most recent potential matches
+        take: 20 
       });
 
-      // Calculate similarity scores for each potential duplicate
+      
       const issuesWithSimilarity = potentialDuplicates.map(issue => ({
         issueId: issue.id,
         title: issue.title,
@@ -935,11 +963,11 @@ class IssueService {
         )
       }));
 
-      // Filter by threshold and sort by similarity
+      
       const similarIssues = filterBySimilarity(issuesWithSimilarity, 0.7);
       const sortedIssues = sortBySimilarity(similarIssues);
 
-      return sortedIssues.slice(0, 10); // Return top 10 matches
+      return sortedIssues.slice(0, 10); 
     } catch (error) {
       if (error instanceof NotFoundError) {
         throw error;
@@ -964,7 +992,7 @@ class IssueService {
     managementUserId: string
   ): Promise<any> {
     try {
-      // Validate all issue IDs exist
+      
       const allIssueIds = [primaryIssueId, ...duplicateIssueIds];
       const issues = await prisma.issue.findMany({
         where: {
@@ -998,20 +1026,20 @@ class IssueService {
         throw new ValidationError('Primary issue not found');
       }
 
-      // Validate issues can be merged (same category and hostel)
-      const canMerge = duplicateIssues.every(issue => 
-        issue.category === primaryIssue.category && 
+      
+      const canMerge = duplicateIssues.every(issue =>
+        issue.category === primaryIssue.category &&
         issue.hostelId === primaryIssue.hostelId &&
-        !issue.isMerged // Cannot merge already merged issues
+        !issue.isMerged 
       );
 
       if (!canMerge) {
         throw new ValidationError('Issues must have same category and hostel to merge');
       }
 
-      // Start transaction to merge issues
+      
       const mergedIssue = await prisma.$transaction(async (tx) => {
-        // Mark duplicate issues as merged
+        
         await tx.issue.updateMany({
           where: {
             id: { in: duplicateIssueIds }
@@ -1022,7 +1050,7 @@ class IssueService {
           }
         });
 
-        // Transfer all comments from duplicate issues to primary issue
+        
         await tx.comment.updateMany({
           where: {
             issueId: { in: duplicateIssueIds }
@@ -1032,7 +1060,7 @@ class IssueService {
           }
         });
 
-        // Transfer all reactions from duplicate issues to primary issue
+        
         await tx.reaction.updateMany({
           where: {
             issueId: { in: duplicateIssueIds }
@@ -1042,11 +1070,11 @@ class IssueService {
           }
         });
 
-        // Combine all images and videos from duplicate issues into primary issue
+        
         const allImages = [...(primaryIssue.images || []), ...duplicateIssues.flatMap(issue => issue.images || [])];
         const allVideos = [...(primaryIssue.videos || []), ...duplicateIssues.flatMap(issue => issue.videos || [])];
 
-        // Update primary issue with merged content
+        
         const updatedPrimaryIssue = await tx.issue.update({
           where: { id: primaryIssueId },
           data: {
@@ -1085,7 +1113,7 @@ class IssueService {
           }
         });
 
-        // Create merge history entry
+        
         await tx.issueStatusHistory.create({
           data: {
             issueId: primaryIssueId,

@@ -19,10 +19,10 @@ class CommentController {
         return;
       }
 
-      // Validate request body
+      
       const validatedData: CreateCommentInput = req.body as CreateCommentInput;
 
-      // Create comment
+      
       const comment = await commentService.createComment(
         validatedData,
         req.user.id
@@ -103,11 +103,11 @@ class CommentController {
         return;
       }
 
-      // Validate query parameters
+      
       const validatedQuery: GetCommentsInput = req.query as any;
       const { issueId, announcementId } = validatedQuery;
 
-      // Determine resource type and ID
+      
       const resourceId = issueId || announcementId;
       const resourceType = issueId ? 'issue' : 'announcement';
 
@@ -122,10 +122,10 @@ class CommentController {
         return;
       }
 
-      // Extract pagination
+      
       const { page, limit } = validatedQuery;
 
-      // Get comments
+      
       const result = await commentService.getComments(
         resourceId,
         resourceType,
@@ -197,10 +197,10 @@ class CommentController {
 
 const commentId = req.params.id as string;
       
-      // Validate request body
+      
       const validatedData: UpdateCommentInput = req.body as UpdateCommentInput;
       
-      // Update comment
+      
       const comment = await commentService.updateComment(
         commentId,
         validatedData.content,
@@ -285,7 +285,7 @@ const commentId = req.params.id as string;
 
 const commentId = req.params.id as string;
       
-      // Delete comment
+      
       await commentService.deleteComment(commentId, req.user.id);
 
       res.status(200).json({
@@ -354,7 +354,7 @@ const commentId = req.params.id as string;
 
 const commentId = req.params.id as string;
       
-      // Get comment
+      
       const comment = await commentService.getCommentById(
         commentId,
         req.user.id

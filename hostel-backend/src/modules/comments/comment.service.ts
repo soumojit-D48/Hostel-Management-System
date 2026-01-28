@@ -43,7 +43,7 @@ class CommentService {
     try {
       const { issueId, announcementId, content, parentId } = data;
 
-      // Validate resource exists and user has permission
+      
       if (issueId) {
         const issue = await prisma.issue.findUnique({
           where: { id: issueId },
@@ -58,7 +58,7 @@ class CommentService {
           throw new Error('Issue not found');
         }
 
-        // Check permission to comment on issue
+        
         const user = await prisma.user.findUnique({
           where: { id: userId },
           select: { id: true, role: true }
@@ -68,7 +68,7 @@ class CommentService {
           throw new Error('User not found');
         }
 
-        // Public issues OR own issues OR management/staff can comment
+        
         const canComment = 
           issue.visibility === IssueVisibility.PUBLIC ||
           issue.reportedBy.id === userId ||
@@ -89,11 +89,11 @@ class CommentService {
           throw new Error('Announcement not found');
         }
 
-        // All authenticated users can comment on announcements
-        // No additional permission check needed
+        
+        
       }
 
-      // If parentId provided, validate parent comment exists
+      
       if (parentId) {
         const parentComment = await prisma.comment.findUnique({
           where: { id: parentId }
@@ -103,7 +103,7 @@ class CommentService {
           throw new Error('Parent comment not found');
         }
 
-        // Validate parent comment is on the same resource
+        
         if (issueId && parentComment.issueId !== issueId) {
           throw new Error('Parent comment is not on the same issue');
         }
@@ -112,13 +112,13 @@ class CommentService {
           throw new Error('Parent comment is not on the same announcement');
         }
 
-        // Ensure parent is a top-level comment (no nesting deeper than 1 level)
+        
         if (parentComment.parentId) {
           throw new Error('Cannot reply to a reply (max 1 level deep)');
         }
       }
 
-      // Create comment record
+      
       const comment = await prisma.comment.create({
         data: {
           content,
@@ -177,19 +177,19 @@ class CommentService {
       const { page, limit } = pagination;
       const skip = (page - 1) * limit;
 
-      // Build where clause
+      
       const where = {
-        parentId: null, // Only top-level comments
+        parentId: null, 
         ...(resourceType === 'issue' 
           ? { issueId: resourceId }
           : { announcementId: resourceId }
         )
       };
 
-      // Get total count of top-level comments
+      
       const total = await prisma.comment.count({ where });
 
-      // Get top-level comments with user details
+      
       const topLevelComments = await prisma.comment.findMany({
         where,
         include: {
@@ -229,7 +229,7 @@ class CommentService {
         take: limit,
       });
 
-      // Calculate pagination
+      
       const totalPages = Math.ceil(total / limit);
       const paginationInfo = {
         page,
@@ -266,7 +266,7 @@ class CommentService {
     userId: string
   ): Promise<CommentWithUser> {
     try {
-      // Get existing comment
+      
       const existingComment = await prisma.comment.findUnique({
         where: { id: commentId },
         include: {
@@ -280,18 +280,18 @@ class CommentService {
         throw new Error('Comment not found');
       }
 
-      // Verify comment belongs to user
+      
       if (existingComment.userId !== userId) {
         throw new Error('Not authorized to update this comment');
       }
 
-      // Verify comment was created within last 5 minutes (edit window)
+      
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
       if (existingComment.createdAt < fiveMinutesAgo) {
         throw new Error('Comments can only be edited within 5 minutes of creation');
       }
 
-      // Update comment
+      
       const updatedComment = await prisma.comment.update({
         where: { id: commentId },
         data: {
@@ -342,7 +342,7 @@ class CommentService {
     userId: string
   ): Promise<void> {
     try {
-      // Get existing comment
+      
       const existingComment = await prisma.comment.findUnique({
         where: { id: commentId },
         include: {
@@ -356,7 +356,7 @@ class CommentService {
         throw new Error('Comment not found');
       }
 
-      // Verify comment belongs to user OR user is management
+      
       const canDelete = 
         existingComment.userId === userId ||
         existingComment.user?.role === Role.MANAGEMENT;
@@ -365,7 +365,7 @@ class CommentService {
         throw new Error('Not authorized to delete this comment');
       }
 
-      // Delete comment (will cascade to delete replies if any)
+      
       await prisma.comment.delete({
         where: { id: commentId }
       });
@@ -433,9 +433,9 @@ class CommentService {
         return null;
       }
 
-      // If user is provided, check if they can access this comment
+      
       if (userId) {
-        // Check access to the resource this comment belongs to
+        
         if (comment.issueId) {
           const issue = await prisma.issue.findUnique({
             where: { id: comment.issueId },

@@ -7,6 +7,7 @@ import { RegisterInput, LoginInput, VerifyEmailInput, ForgotPasswordInput, Reset
 import { ValidationError, NotFoundError } from '../../shared/middleware/error.middleware';
 import { config } from '../../shared/config/config';
 import { cacheService } from '../../shared/services/cache.service';
+import { notificationService } from '../notifications/notification.service';
 
 class AuthService {
   private generateToken(userId: string, email: string, role: Role): string {
@@ -207,6 +208,13 @@ class AuthService {
       updatedUser.role
     );
 
+    await notificationService.createNotification(
+      updatedUser.id,
+      'email_verified',
+      'Email verified successfully',
+      'Your email has been verified and your account is now active.'
+    );
+
     return {
       token: jwtToken,
       user: updatedUser
@@ -233,7 +241,7 @@ class AuthService {
     }
 
     const resetToken = nanoid(32);
-    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); 
 
     await prisma.user.update({
       where: { id: user.id },
@@ -282,6 +290,13 @@ class AuthService {
         resetTokenExpiry: null,
       }
     });
+
+    await notificationService.createNotification(
+      user.id,
+      'password_reset',
+      'Password changed',
+      'Your account password has been changed successfully.'
+    );
 
     return {
       message: 'Password reset successfully. You can now login with your new password.'
