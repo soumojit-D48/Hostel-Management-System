@@ -96,14 +96,14 @@ class CacheService {
   }
 
   async addToBlacklist(token: string, ttl: number): Promise<boolean> {
-    if (!this.isRedisAvailable) return true; // If Redis is down, assume token is valid for now
+    if (!this.isRedisAvailable) return true; 
     
     const blacklistKey = `blacklist:${token}`;
     return this.set(blacklistKey, '1', ttl);
   }
 
   async isBlacklisted(token: string): Promise<boolean> {
-    if (!this.isRedisAvailable) return false; // If Redis is down, don't block tokens
+    if (!this.isRedisAvailable) return false; 
     
     const blacklistKey = `blacklist:${token}`;
     return this.exists(blacklistKey);

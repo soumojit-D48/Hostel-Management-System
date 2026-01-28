@@ -12,13 +12,13 @@ interface UploadResult {
 class UploadService {
   async uploadImage(file: Express.Multer.File): Promise<UploadResult> {
     try {
-      // Process image with Sharp
+      
       let processedImage = sharp(file.buffer);
       
-      // Get image metadata
+      
       const metadata = await processedImage.metadata();
       
-      // Resize if too large (max 2000px width)
+      
       if (metadata.width && metadata.width > 2000) {
         processedImage = processedImage.resize(2000, null, {
           withoutEnlargement: true,
@@ -26,12 +26,12 @@ class UploadService {
         });
       }
       
-      // Convert to WebP with 85% quality
+      
       const webpBuffer = await processedImage
         .webp({ quality: 85 })
         .toBuffer();
       
-      // Generate thumbnail (300px width)
+      
       const thumbnailBuffer = await sharp(file.buffer)
         .resize(300, null, {
           withoutEnlargement: true,
@@ -40,7 +40,7 @@ class UploadService {
         .webp({ quality: 80 })
         .toBuffer();
       
-      // Upload main image
+      
       const mainResult = await new Promise<any>((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
           {
@@ -58,7 +58,7 @@ class UploadService {
         uploadStream.end(webpBuffer);
       });
       
-      // Upload thumbnail
+      
       const thumbnailResult = await new Promise<any>((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
           {
@@ -105,7 +105,7 @@ class UploadService {
           {
             folder: 'hostel-videos',
             resource_type: 'video',
-            chunk_size: 6000000, // 6MB chunks
+            chunk_size: 6000000, 
             eager: [
               { format: 'mp4', transformation: { quality: 'auto', fetch_format: 'auto' } }
             ],
@@ -172,9 +172,9 @@ class UploadService {
 
   private extractPublicIdFromUrl(url: string): string | null {
     try {
-      // Extract public ID from Cloudinary URL
-      // Example: https://res.cloudinary.com/demo/image/upload/v1234567890/hostel-images/abc123.jpg
-      // Public ID would be: hostel-images/abc123
+      
+      
+      
       const urlParts = url.split('/');
       const uploadIndex = urlParts.indexOf('upload');
       if (uploadIndex === -1) return null;
@@ -182,7 +182,7 @@ class UploadService {
       const pathParts = urlParts.slice(uploadIndex + 1);
       const filenameWithExtension = pathParts.join('/');
       
-      // Remove extension
+      
       const lastDotIndex = filenameWithExtension.lastIndexOf('.');
       if (lastDotIndex !== -1) {
         return filenameWithExtension.substring(0, lastDotIndex);
