@@ -43,6 +43,8 @@ export const config = {
   MAX_VIDEO_SIZE: parseInt(process.env.MAX_VIDEO_SIZE || '52428800', 10),
   MAX_IMAGES_PER_ISSUE: parseInt(process.env.MAX_IMAGES_PER_ISSUE || '5', 10),
   MAX_VIDEOS_PER_ISSUE: parseInt(process.env.MAX_VIDEOS_PER_ISSUE || '1', 10),
+  MAX_IMAGES_PER_ANNOUNCEMENT: parseInt(process.env.MAX_IMAGES_PER_ANNOUNCEMENT || '3', 10),
+  MAX_ATTACHMENTS_PER_ANNOUNCEMENT: parseInt(process.env.MAX_ATTACHMENTS_PER_ANNOUNCEMENT || '2', 10),
 
   BULLMQ_REDIS_URL: process.env.BULLMQ_REDIS_URL || process.env.REDIS_URL || 'redis://localhost:6379',
 
