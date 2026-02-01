@@ -7,6 +7,7 @@ import reactionRoutes from './modules/reactions/reaction.routes';
 import lostFoundRoutes from './modules/lost-found/lost-found.routes';
 import analyticsRoutes from './modules/analytics/analytics.routes';
 import notificationRoutes from './modules/notifications/notification.routes';
+import hostelRoutes from './modules/hostels/hostel.routes';
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.use('/reactions', reactionRoutes);
 router.use('/lost-found', lostFoundRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/hostels', hostelRoutes);
 
 export default router;
