@@ -45,7 +45,7 @@ export const upload = multer({
 export const issueUpload = upload.fields([
   { name: 'images', maxCount: 5 },
   { name: 'videos', maxCount: 1 },
-});
+]);
 
 export const handleUploadError = (error: any, req: Request, res: Response, next: NextFunction) => {
   if (error instanceof multer.MulterError) {
@@ -98,7 +98,7 @@ export const handleUploadError = (error: any, req: Request, res: Response, next:
 export const announcementUpload = upload.fields([
   { name: 'images', maxCount: 3 },
   { name: 'attachments', maxCount: 2 },
-});
+]);
 
 export const lostFoundUpload = upload.fields([
   { name: 'images', maxCount: 3 },
