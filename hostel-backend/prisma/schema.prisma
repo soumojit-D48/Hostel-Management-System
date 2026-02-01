@@ -127,6 +127,7 @@ model User {
   reactions      Reaction[]
   notifications  Notification[]
   lostFoundItems LostFound[]
+  statusChanges  IssueStatusHistory[]
   claims         LostFoundClaim[]
 
   @@index([email])
@@ -189,7 +190,8 @@ model IssueStatusHistory {
   changedById String
   changedAt   DateTime    @default(now())
 
-  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  issue    Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  changedBy User  @relation(fields: [changedById], references: [id])
 
   @@index([issueId])
   @@map("issue_status_history")
