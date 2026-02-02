@@ -1,17 +1,17 @@
-export type IssueStatus = 
-  | 'REPORTED' 
-  | 'ASSIGNED' 
-  | 'IN_PROGRESS' 
-  | 'RESOLVED' 
+export type IssueStatus =
+  | 'REPORTED'
+  | 'ASSIGNED'
+  | 'IN_PROGRESS'
+  | 'RESOLVED'
   | 'CLOSED';
 
-export type IssueCategory = 
-  | 'PLUMBING' 
-  | 'ELECTRICAL' 
-  | 'FURNITURE' 
-  | 'CLEANING' 
-  | 'INTERNET' 
-  | 'SECURITY' 
+export type IssueCategory =
+  | 'PLUMBING'
+  | 'ELECTRICAL'
+  | 'FURNITURE'
+  | 'CLEANING'
+  | 'INTERNET'
+  | 'SECURITY'
   | 'OTHER';
 
 export type IssuePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
@@ -39,7 +39,16 @@ export interface Issue {
     id: string;
     name: string;
     email: string;
+    phone?: string;
+    avatar?: string | null;
   };
+  assignedBy?: {
+    id: string;
+    name: string;
+  };
+  assignedAt?: string;
+  assignmentNote?: string;
+  assignmentDeadline?: string;
   hostel: {
     id: string;
     name: string;
@@ -51,6 +60,17 @@ export interface Issue {
   createdAt: string;
   updatedAt: string;
   resolvedAt?: string;
+  // Merge-related fields
+  isMerged?: boolean;
+  mergedIntoId?: string;
+  mergedIntoTitle?: string;
+  mergedCount?: number;
+  mergedIssues?: Array<{
+    id: string;
+    title: string;
+    reportedBy: { name: string };
+    mergedAt: string;
+  }>;
 }
 
 export interface CreateIssueRequest {
