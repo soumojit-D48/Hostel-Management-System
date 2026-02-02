@@ -15,3 +15,17 @@ export function useComments(issueId: string) {
     enabled: !!issueId,
   });
 }
+
+/**
+ * Hook to get a single comment by ID
+ */
+export function useComment(commentId: string) {
+  return useQuery({
+    queryKey: ['comments', 'single', commentId],
+    queryFn: async () => {
+      const response = await apiGet<ApiResponse<Comment>>(`/comments/${commentId}`);
+      return response.data;
+    },
+    enabled: !!commentId,
+  });
+}

@@ -45,3 +45,28 @@ export function usePendingClaims() {
     },
   });
 }
+
+interface SearchLostFoundParams {
+  query: string;
+  category?: string;
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+/**
+ * Hook to search lost-found items with advanced filters
+ */
+export function useSearchLostFound(params: SearchLostFoundParams) {
+  return useQuery({
+    queryKey: ['lost-found', 'search', params],
+    queryFn: async () => {
+      const response = await apiGet<ApiResponse<LostFoundItem[]>>(
+        '/lost-found/search',
+        params
+      );
+      return response.data;
+    },
+    enabled: params.query.length > 2, // Only search if query is at least 3 characters
+  });
+}

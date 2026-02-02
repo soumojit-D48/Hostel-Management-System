@@ -48,6 +48,21 @@ export function useIssueSearch(query: string) {
   });
 }
 
+/**
+ * Hook to find similar issues (Management only)
+ * Used for duplicate detection before merging
+ */
+export function useSimilarIssues(issueId: string) {
+  return useQuery({
+    queryKey: ['issues', issueId, 'similar'],
+    queryFn: async () => {
+      const response = await apiGet<ApiResponse<Issue[]>>(`/issues/${issueId}/similar`);
+      return response.data;
+    },
+    enabled: !!issueId,
+  });
+}
+
 
 
 
