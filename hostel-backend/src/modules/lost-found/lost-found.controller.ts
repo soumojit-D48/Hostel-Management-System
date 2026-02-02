@@ -10,17 +10,24 @@ import {
 import { AuthenticatedRequest } from '../../shared/types';
 import { Role } from '@prisma/client';
 
+/**
+ * Controller class for Lost & Found endpoints
+ */
 export class LostFoundController {
+    /**
+     * Create a new lost or found item
+     * POST /api/v1/lost-found
+     */
     async createLostFoundItem(
         req: AuthenticatedRequest,
         res: Response,
         next: NextFunction
     ): Promise<void> {
         try {
-            
+            // Validate request body
             const validatedData = createLostFoundSchema.parse(req.body);
 
-            
+            // Extract user ID from authenticated request
             const userId = req.user?.id;
             if (!userId) {
                 res.status(401).json({
@@ -30,11 +37,11 @@ export class LostFoundController {
                 return;
             }
 
-            
+            // Process uploaded images
             const imageUrls: string[] = [];
             if (req.files && Array.isArray(req.files)) {
-                
-                
+                // Images should be uploaded via upload middleware
+                // URLs should be in req.body.images as JSON string or already processed
                 if (req.body.images) {
                     try {
                         const images = JSON.parse(req.body.images);
@@ -45,7 +52,7 @@ export class LostFoundController {
                 }
             }
 
-            
+            // Create the item
             const result = await lostFoundService.createLostFoundItem(
                 validatedData,
                 imageUrls,
@@ -71,16 +78,20 @@ export class LostFoundController {
         }
     }
 
+    /**
+     * Get lost & found items with filters and pagination
+     * GET /api/v1/lost-found
+     */
     async getLostFoundItems(
         req: AuthenticatedRequest,
         res: Response,
         next: NextFunction
     ): Promise<void> {
         try {
-            
+            // Validate query parameters
             const filters = getLostFoundItemsSchema.parse(req.query);
 
-            
+            // Get items
             const result = await lostFoundService.getLostFoundItems(filters);
 
             res.status(200).json({
@@ -102,16 +113,20 @@ export class LostFoundController {
         }
     }
 
+    /**
+     * Search lost & found items
+     * GET /api/v1/lost-found/search
+     */
     async searchLostFoundItems(
         req: AuthenticatedRequest,
         res: Response,
         next: NextFunction
     ): Promise<void> {
         try {
-            
+            // Validate query parameters
             const searchData = searchLostFoundSchema.parse(req.query);
 
-            
+            // Search items
             const items = await lostFoundService.searchLostFoundItems(searchData);
 
             res.status(200).json({
@@ -133,13 +148,17 @@ export class LostFoundController {
         }
     }
 
+    /**
+     * Get a single lost/found item by ID
+     * GET /api/v1/lost-found/:id
+     */
     async getLostFoundItemById(
         req: AuthenticatedRequest,
         res: Response,
         next: NextFunction
     ): Promise<void> {
         try {
-            const { id } = req.params;
+            const id = req.params.id as string;
             const userId = req.user?.id;
 
             if (!userId) {
@@ -169,6 +188,10 @@ export class LostFoundController {
         }
     }
 
+    /**
+     * Claim a lost/found item
+     * POST /api/v1/lost-found/:id/claim
+     */
     async claimItem(
         req: AuthenticatedRequest,
         res: Response,
@@ -186,7 +209,7 @@ export class LostFoundController {
                 return;
             }
 
-            
+            // Validate claim data
             const claimData = createClaimSchema.parse({
                 ...req.body,
                 itemId: id,
@@ -225,13 +248,17 @@ export class LostFoundController {
         }
     }
 
+    /**
+     * Update claim status (approve/reject) - Management only
+     * PATCH /api/v1/lost-found/claims/:id
+     */
     async updateClaimStatus(
         req: AuthenticatedRequest,
         res: Response,
         next: NextFunction
     ): Promise<void> {
         try {
-            const { id } = req.params as { id: string };
+            const id = req.params.id as string;
             const userId = req.user?.id;
             const userRole = req.user?.role;
 
@@ -243,7 +270,7 @@ export class LostFoundController {
                 return;
             }
 
-            
+            // Validate update data
             const updateData = updateClaimSchema.parse(req.body);
 
             const result = await lostFoundService.updateClaimStatus(
@@ -285,6 +312,10 @@ export class LostFoundController {
         }
     }
 
+    /**
+     * Mark item as returned - Management only
+     * PATCH /api/v1/lost-found/:id/returned
+     */
     async markAsReturned(
         req: AuthenticatedRequest,
         res: Response,
@@ -326,6 +357,10 @@ export class LostFoundController {
         }
     }
 
+    /**
+     * Get all pending claims - Management only
+     * GET /api/v1/lost-found/claims/pending
+     */
     async getPendingClaims(
         req: AuthenticatedRequest,
         res: Response,
