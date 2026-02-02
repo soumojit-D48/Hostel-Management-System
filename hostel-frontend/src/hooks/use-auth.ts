@@ -20,7 +20,9 @@ export function useAuth() {
   } = useAuthStore();
 
   const isStudent = user?.role === 'STUDENT';
+  const isStaff = user?.role === 'STAFF'; 
   const isManagement = user?.role === 'MANAGEMENT';
+  const isStaffOrManagement = user?.role === 'STAFF' || user?.role === 'MANAGEMENT';
 
   return {
     // State
@@ -32,7 +34,9 @@ export function useAuth() {
 
     // Helpers
     isStudent,
+    isStaff,
     isManagement,
+    isStaffOrManagement,
 
     // Actions
     login,
