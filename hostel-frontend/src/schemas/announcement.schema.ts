@@ -33,7 +33,7 @@ export const createAnnouncementSchema = z.object({
         .min(10, 'Content must be at least 10 characters')
         .max(2000, 'Content must be less than 2000 characters'),
     category: announcementCategoryEnum,
-    priority: z.boolean().default(false),
+    priority: z.boolean(),
     hostelId: z.string().optional(),
     blockIds: z.array(z.string()).optional(),
     targetRoles: z
