@@ -1,9 +1,13 @@
-export type AnnouncementCategory = 
+export type AnnouncementCategory =
   | 'GENERAL'
   | 'MAINTENANCE'
   | 'EVENTS'
   | 'RULES'
-  | 'EMERGENCY';
+  | 'EMERGENCY'
+  | 'CLEANING_SCHEDULE'
+  | 'PEST_CONTROL'
+  | 'MAINTENANCE_NOTICE'
+  | 'WATER_ELECTRICITY';
 
 export interface Announcement {
   id: string;
@@ -25,7 +29,7 @@ export interface Announcement {
     id: string;
     name: string;
   }[];
-  targetRoles: ('STUDENT' | 'MANAGEMENT')[];
+  targetRoles: ('STUDENT' | 'STAFF' | 'MANAGEMENT')[];
   createdBy: {
     id: string;
     name: string;
@@ -43,7 +47,7 @@ export interface CreateAnnouncementRequest {
   priority: 'LOW' | 'MEDIUM' | 'HIGH';
   hostelId?: string;
   blockIds?: string[];
-  targetRoles: ('STUDENT' | 'MANAGEMENT')[];
+  targetRoles: ('STUDENT' | 'STAFF' | 'MANAGEMENT')[];
   images?: File[];
   attachments?: File[];
 }
