@@ -42,4 +42,10 @@ router.get(
   announcementController.getUnreadCount as any
 );
 
+router.get(
+  '/:id',
+  authenticate as any,
+  announcementController.getAnnouncementById as any
+);
+
 export default router;

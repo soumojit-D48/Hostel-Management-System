@@ -1,9 +1,9 @@
 import { prisma } from '../../config/database';
-import { 
-  Announcement, 
-  AnnouncementCategory, 
-  Role, 
-  User 
+import {
+  Announcement,
+  AnnouncementCategory,
+  Role,
+  User
 } from '@prisma/client';
 import { uploadService } from '../../shared/services/upload.service';
 import { logger } from '../../shared/services/logger.service';
@@ -47,7 +47,7 @@ class AnnouncementService {
     managementUserId: string
   ): Promise<AnnouncementWithRelations> {
     try {
-      
+
       const managementUser = await this.prisma.user.findUnique({
         where: { id: managementUserId, role: Role.MANAGEMENT }
       });
@@ -56,7 +56,7 @@ class AnnouncementService {
         throw new Error('Only management users can create announcements');
       }
 
-      
+
       if (data.hostelId) {
         const hostel = await this.prisma.hostel.findUnique({
           where: { id: data.hostelId }
@@ -66,7 +66,7 @@ class AnnouncementService {
         }
       }
 
-      
+
       if (data.blockIds && data.blockIds.length > 0) {
         const blocks = await this.prisma.block.findMany({
           where: { id: { in: data.blockIds } }
@@ -76,7 +76,7 @@ class AnnouncementService {
         }
       }
 
-      
+
       const imageUrls: string[] = [];
       if (files.images && files.images.length > 0) {
         if (files.images.length > config.MAX_IMAGES_PER_ANNOUNCEMENT) {
@@ -93,7 +93,7 @@ class AnnouncementService {
         }
       }
 
-      
+
       const attachmentUrls: string[] = [];
       if (files.attachments && files.attachments.length > 0) {
         if (files.attachments.length > config.MAX_ATTACHMENTS_PER_ANNOUNCEMENT) {
@@ -101,17 +101,17 @@ class AnnouncementService {
         }
 
         for (const attachment of files.attachments) {
-          
+
           const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
           if (!allowedTypes.includes(attachment.mimetype)) {
             throw new Error('Invalid attachment type. Only PDF and Word documents are allowed.');
           }
 
-          if (attachment.size > 10 * 1024 * 1024) { 
+          if (attachment.size > 10 * 1024 * 1024) {
             throw new Error('Attachment size too large. Maximum size is 10MB.');
           }
 
-          
+
           const result = await new Promise<any>((resolve, reject) => {
             const cloudinary = require('../../config/cloudinary').cloudinary;
             const uploadStream = cloudinary.uploader.upload_stream(
@@ -132,7 +132,7 @@ class AnnouncementService {
         }
       }
 
-      
+
       const announcement = await this.prisma.announcement.create({
         data: {
           title: data.title,
@@ -163,10 +163,10 @@ class AnnouncementService {
         }
       });
 
-      
+
       const affectedUsersCount = await this.calculateAffectedUsersCount(announcement);
 
-      
+
       logger.info({
         message: 'Announcement created successfully',
         announcementId: announcement.id,
@@ -177,7 +177,7 @@ class AnnouncementService {
         createdBy: managementUserId,
       });
 
-      
+
       await this.invalidateAnnouncementsCache();
 
       const usersToNotify = await this.prisma.user.findMany({
@@ -239,7 +239,7 @@ class AnnouncementService {
       const { page, limit, category, priority, unreadOnly, startDate, endDate } = filters;
       const skip = (page - 1) * limit;
 
-      
+
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -253,7 +253,7 @@ class AnnouncementService {
         throw new Error('User not found');
       }
 
-      
+
       const now = new Date();
       const where: any = {
         publishAt: { lte: now },
@@ -262,29 +262,29 @@ class AnnouncementService {
           { expiresAt: { gt: now } }
         ],
         AND: [
-          
+
           {
             OR: [
-              { hostelId: null }, 
-              { hostelId: user.hostelId }, 
+              { hostelId: null },
+              { hostelId: user.hostelId },
             ]
           },
           {
             OR: [
-              { blockIds: { isEmpty: true } }, 
-              { blockIds: { has: user.blockId } }, 
+              { blockIds: { isEmpty: true } },
+              { blockIds: { has: user.blockId } },
             ]
           },
           {
             OR: [
-              { targetRoles: { isEmpty: true } }, 
-              { targetRoles: { has: user.role } }, 
+              { targetRoles: { isEmpty: true } },
+              { targetRoles: { has: user.role } },
             ]
           }
         ]
       };
 
-      
+
       if (category) {
         where.category = category;
       }
@@ -301,10 +301,10 @@ class AnnouncementService {
         where.publishAt = { ...where.publishAt, lte: new Date(endDate) };
       }
 
-      
+
       const total = await this.prisma.announcement.count({ where });
 
-      
+
       const announcements = await this.prisma.announcement.findMany({
         where,
         include: {
@@ -333,19 +333,19 @@ class AnnouncementService {
         take: limit,
       });
 
-      
+
       const announcementsWithReadStatus = announcements.map(announcement => ({
         ...announcement,
         isRead: announcement.readBy.length > 0,
-        readBy: undefined, 
+        readBy: undefined,
       }));
 
-      
+
       const filteredAnnouncements = unreadOnly
         ? announcementsWithReadStatus.filter(a => !a.isRead)
         : announcementsWithReadStatus;
 
-      
+
       const unreadCount = await this.prisma.announcement.count({
         where: {
           ...where,
@@ -355,7 +355,7 @@ class AnnouncementService {
         }
       });
 
-      
+
       const totalPages = Math.ceil(total / limit);
       const pagination = {
         page,
@@ -389,7 +389,7 @@ class AnnouncementService {
 
   async markAsRead(announcementId: string, userId: string): Promise<void> {
     try {
-      
+
       const announcement = await this.prisma.announcement.findUnique({
         where: { id: announcementId }
       });
@@ -398,7 +398,7 @@ class AnnouncementService {
         throw new Error('Announcement not found');
       }
 
-      
+
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -413,7 +413,7 @@ class AnnouncementService {
       }
 
       const now = new Date();
-      const canAccess = 
+      const canAccess =
         (announcement.hostelId === null || announcement.hostelId === user.hostelId) &&
         (announcement.blockIds.length === 0 || announcement.blockIds.includes(user.blockId)) &&
         (announcement.targetRoles.length === 0 || announcement.targetRoles.includes(user.role)) &&
@@ -424,7 +424,7 @@ class AnnouncementService {
         throw new Error('User cannot access this announcement');
       }
 
-      
+
       await this.prisma.announcementRead.upsert({
         where: {
           announcementId_userId: {
@@ -442,7 +442,7 @@ class AnnouncementService {
         }
       });
 
-      
+
       await this.invalidateUserAnnouncementsCache(userId);
     } catch (error) {
       logger.error({
@@ -461,7 +461,7 @@ class AnnouncementService {
 
   async getUnreadCount(userId: string): Promise<number> {
     try {
-      
+
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -475,7 +475,7 @@ class AnnouncementService {
         throw new Error('User not found');
       }
 
-      
+
       const now = new Date();
       const where: any = {
         publishAt: { lte: now },
@@ -523,21 +523,94 @@ class AnnouncementService {
     }
   }
 
+  async getAnnouncementById(announcementId: string, userId: string): Promise<AnnouncementWithRelations> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          hostelId: true,
+          blockId: true,
+          role: true,
+        }
+      });
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      const announcement = await this.prisma.announcement.findUnique({
+        where: { id: announcementId },
+        include: {
+          hostel: {
+            select: {
+              id: true,
+              name: true,
+            }
+          },
+          _count: {
+            select: {
+              comments: true,
+              reactions: true,
+            }
+          },
+          readBy: {
+            where: { userId },
+            select: { id: true },
+          }
+        }
+      });
+
+      if (!announcement) {
+        throw new Error('Announcement not found');
+      }
+
+      const now = new Date();
+      const canAccess =
+        (announcement.hostelId === null || announcement.hostelId === user.hostelId) &&
+        (announcement.blockIds.length === 0 || announcement.blockIds.includes(user.blockId || '')) &&
+        (announcement.targetRoles.length === 0 || announcement.targetRoles.includes(user.role)) &&
+        announcement.publishAt <= now &&
+        (announcement.expiresAt === null || announcement.expiresAt > now);
+
+      if (!canAccess) {
+        throw new Error('User cannot access this announcement');
+      }
+
+      return {
+        ...announcement,
+        isRead: announcement.readBy.length > 0,
+        readBy: undefined,
+      } as AnnouncementWithRelations;
+    } catch (error) {
+      logger.error({
+        message: 'Failed to get announcement by id',
+        error: error instanceof Error ? {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+        } : error,
+        announcementId,
+        userId,
+      });
+      throw error;
+    }
+  }
+
   private async calculateAffectedUsersCount(announcement: Announcement): Promise<number> {
     try {
       const where: any = {};
 
-      
+
       if (announcement.hostelId) {
         where.hostelId = announcement.hostelId;
       }
 
-      
+
       if (announcement.blockIds.length > 0) {
         where.blockId = { in: announcement.blockIds };
       }
 
-      
+
       if (announcement.targetRoles.length > 0) {
         where.role = { in: announcement.targetRoles };
       }
@@ -555,7 +628,7 @@ class AnnouncementService {
 
   private async invalidateAnnouncementsCache(): Promise<void> {
     try {
-      
+
       await cacheService.del('announcements:*');
     } catch (error) {
       logger.error({
@@ -567,7 +640,7 @@ class AnnouncementService {
 
   private async invalidateUserAnnouncementsCache(userId: string): Promise<void> {
     try {
-      
+
       await cacheService.del(`announcements:user:${userId}:*`);
       await cacheService.del(`announcements:user:${userId}:unread`);
     } catch (error) {

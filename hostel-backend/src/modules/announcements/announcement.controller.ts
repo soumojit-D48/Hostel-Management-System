@@ -8,7 +8,7 @@ import { Role } from '@prisma/client';
 class AnnouncementController {
   async createAnnouncement(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      
+
       if (!req.user || req.user.role !== 'MANAGEMENT') {
         res.status(403).json({
           success: false,
@@ -20,16 +20,16 @@ class AnnouncementController {
         return;
       }
 
-      
+
       const validatedData: CreateAnnouncementInput = req.body as CreateAnnouncementInput;
 
-      
+
       const files = {
         images: Array.isArray(req.files) ? undefined : req.files?.images as Express.Multer.File[] | undefined,
         attachments: Array.isArray(req.files) ? undefined : req.files?.attachments as Express.Multer.File[] | undefined,
       };
 
-      
+
       const announcement = await announcementService.createAnnouncement(
         validatedData,
         files,
@@ -111,10 +111,10 @@ class AnnouncementController {
         return;
       }
 
-      
+
       const filters: GetAnnouncementsInput = req.query as any;
 
-      
+
       const result = await announcementService.getAnnouncements(
         req.user.id,
         req.user.role as Role,
@@ -176,7 +176,7 @@ class AnnouncementController {
 
       const announcementId = req.params.id as string;
 
-      
+
       await announcementService.markAsRead(announcementId, req.user.id);
 
       res.status(200).json({
@@ -243,7 +243,7 @@ class AnnouncementController {
         return;
       }
 
-      
+
       const unreadCount = await announcementService.getUnreadCount(req.user.id);
 
       res.status(200).json({
@@ -278,6 +278,73 @@ class AnnouncementController {
         error: {
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to get unread count',
+        },
+      });
+    }
+  }
+
+  async getAnnouncementById(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Authentication required',
+          },
+        });
+        return;
+      }
+
+      const announcementId = req.params.id;
+      const announcement = await announcementService.getAnnouncementById(announcementId as string, req.user.id);
+
+      res.status(200).json({
+        success: true,
+        data: announcement,
+        message: 'Announcement retrieved successfully',
+      });
+    } catch (error) {
+      logger.error({
+        message: 'Get announcement by id controller error',
+        error: error instanceof Error ? {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+        } : error,
+        userId: req.user?.id,
+        announcementId: req.params.id,
+      });
+
+      if (error instanceof Error) {
+        if (error.message.includes('not found')) {
+          res.status(404).json({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: error.message,
+            },
+          });
+          return;
+        }
+
+        if (error.message.includes('cannot access')) {
+          res.status(403).json({
+            success: false,
+            error: {
+              code: 'FORBIDDEN',
+              message: error.message,
+            },
+          });
+          return;
+        }
+      }
+
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to get announcement',
         },
       });
     }
