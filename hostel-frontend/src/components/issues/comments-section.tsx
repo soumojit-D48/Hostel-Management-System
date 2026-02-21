@@ -1,15 +1,21 @@
-
 'use client';
 
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { MessageSquare, Send, Edit, Trash2, X } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useComments } from '@/hooks/queries/use-comments';
-import {
-  useCreateComment,
-  useUpdateComment,
-  useDeleteComment,
+import { 
+  useCreateComment, 
+  useUpdateComment, 
+  useDeleteComment 
 } from '@/hooks/mutations/use-comment-mutations';
+import { createCommentSchema, type CreateCommentFormData } from '@/schemas';
 import { Comment } from '@/types/comment.types';
+import { Button } from '@/components/ui/button';
+import { formatRelativeTime, getInitials } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 interface CommentsSectionProps {
   issueId: string;
@@ -19,105 +25,125 @@ export function CommentsSection({ issueId }: CommentsSectionProps) {
   const { user } = useAuth();
   const { data: comments, isLoading } = useComments(issueId);
   const createComment = useCreateComment();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
 
-  const [newComment, setNewComment] = useState('');
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const [replyContent, setReplyContent] = useState('');
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<CreateCommentFormData>({
+    resolver: zodResolver(createCommentSchema),
+    defaultValues: {
+      content: '',
+      issueId,
+    },
+  });
 
-  const handleSubmitComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!newComment.trim()) return;
-
+  const onSubmit = async (data: CreateCommentFormData) => {
     try {
       await createComment.mutateAsync({
         issueId,
-        content: newComment,
+        content: data.content,
       });
-      setNewComment('');
+      reset();
     } catch (error) {
-      console.error('Failed to create comment:', error);
+      // Error handled by mutation
     }
   };
-
-  const handleSubmitReply = async (parentId: string) => {
-    if (!replyContent.trim()) return;
-
-    try {
-      await createComment.mutateAsync({
-        issueId,
-        content: replyContent,
-        parentId,
-      });
-      setReplyContent('');
-      setReplyingTo(null);
-    } catch (error) {
-      console.error('Failed to create reply:', error);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-4 bg-neutral-200 rounded w-1/4"></div>
-          <div className="h-20 bg-neutral-200 rounded"></div>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-lg font-semibold text-neutral-900 mb-4">
-        Comments ({comments?.length || 0})
-      </h3>
+    <div className="card">
+      <div className="mb-6 flex items-center gap-2">
+        <MessageSquare className="h-5 w-5 text-neutral-600 dark:text-neutral-400" />
+        <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+          Comments ({comments?.length || 0})
+        </h3>
+      </div>
 
-      {/* Add Comment Form */}
-      <form onSubmit={handleSubmitComment} className="mb-6">
+      {/* New Comment Form */}
+      <form onSubmit={handleSubmit(onSubmit)} className="mb-6 space-y-3">
         <textarea
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
+          {...register('content')}
           placeholder="Add a comment..."
           rows={3}
-          className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:ring-primary-500 focus:border-primary-500 resize-none"
+          className={cn(
+            'w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm',
+            'focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50',
+            'dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100',
+            errors.content && 'border-error-500'
+          )}
         />
-        <div className="mt-2 flex justify-end">
-          <button
+        {errors.content && (
+          <p className="text-xs text-error-600 dark:text-error-400">
+            {errors.content.message}
+          </p>
+        )}
+        <div className="flex justify-end">
+          <Button
             type="submit"
-            disabled={createComment.isPending || !newComment.trim()}
-            className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary"
+            disabled={createComment.isPending}
           >
-            {createComment.isPending ? 'Posting...' : 'Post Comment'}
-          </button>
+            {createComment.isPending ? (
+              <>
+                <span className="spinner mr-2 h-4 w-4" />
+                Posting...
+              </>
+            ) : (
+              <>
+                <Send className="mr-2 h-4 w-4" />
+                Post Comment
+              </>
+            )}
+          </Button>
         </div>
       </form>
 
       {/* Comments List */}
-      <div className="space-y-4">
-        {comments && comments.length > 0 ? (
-          comments
-            .filter(comment => !comment.parentId)
-            .map((comment) => (
-              <CommentItem
-                key={comment.id}
-                comment={comment}
-                issueId={issueId}
-                currentUserId={user?.id}
-                replies={comments.filter(c => c.parentId === comment.id)}
-                replyingTo={replyingTo}
-                setReplyingTo={setReplyingTo}
-                replyContent={replyContent}
-                setReplyContent={setReplyContent}
-                onSubmitReply={handleSubmitReply}
-              />
-            ))
-        ) : (
-          <p className="text-neutral-500 text-sm text-center py-4">
+      {isLoading && (
+        <div className="space-y-3">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="skeleton h-24 rounded-lg" />
+          ))}
+        </div>
+      )}
+
+      {!isLoading && comments && comments.length > 0 && (
+        <div className="space-y-4">
+          {comments.map((comment) => (
+            <CommentItem
+              key={comment.id}
+              comment={comment}
+              issueId={issueId}
+              currentUserId={user?.id}
+              editingId={editingId}
+              editContent={editContent}
+              onEdit={(id, content) => {
+                setEditingId(id);
+                setEditContent(content);
+              }}
+              onCancelEdit={() => {
+                setEditingId(null);
+                setEditContent('');
+              }}
+              onSaveEdit={(id, content) => {
+                setEditingId(null);
+                setEditContent('');
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {!isLoading && (!comments || comments.length === 0) && (
+        <div className="py-8 text-center">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
             No comments yet. Be the first to comment!
           </p>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -126,183 +152,127 @@ interface CommentItemProps {
   comment: Comment;
   issueId: string;
   currentUserId?: string;
-  replies?: Comment[];
-  replyingTo: string | null;
-  setReplyingTo: (id: string | null) => void;
-  replyContent: string;
-  setReplyContent: (content: string) => void;
-  onSubmitReply: (parentId: string) => void;
-  isReply?: boolean;
+  editingId: string | null;
+  editContent: string;
+  onEdit: (id: string, content: string) => void;
+  onCancelEdit: () => void;
+  onSaveEdit: (id: string, content: string) => void;
 }
 
 function CommentItem({
   comment,
   issueId,
   currentUserId,
-  replies = [],
-  replyingTo,
-  setReplyingTo,
-  replyContent,
-  setReplyContent,
-  onSubmitReply,
-  isReply = false,
+  editingId,
+  editContent,
+  onEdit,
+  onCancelEdit,
+  onSaveEdit,
 }: CommentItemProps) {
-  const deleteComment = useDeleteComment(comment.id, issueId);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState(comment.content);
   const updateComment = useUpdateComment(comment.id, issueId);
+  const deleteComment = useDeleteComment(comment.id, issueId);
+  const [localEditContent, setLocalEditContent] = useState(comment.content);
 
   const isOwner = currentUserId === comment.userId;
+  const isEditing = editingId === comment.id;
 
-  const handleEdit = async () => {
+  const handleSave = async () => {
     try {
-      await updateComment.mutateAsync({ content: editContent });
-      setIsEditing(false);
+      await updateComment.mutateAsync({ content: localEditContent });
+      onSaveEdit(comment.id, localEditContent);
     } catch (error) {
-      console.error('Failed to update comment:', error);
+      // Error handled by mutation
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this comment?')) return;
-
-    try {
-      await deleteComment.mutateAsync();
-    } catch (error) {
-      console.error('Failed to delete comment:', error);
+    if (confirm('Are you sure you want to delete this comment?')) {
+      try {
+        await deleteComment.mutateAsync();
+      } catch (error) {
+        // Error handled by mutation
+      }
     }
   };
 
   return (
-    <div className={`${isReply ? 'ml-8 mt-2' : ''}`}>
-      <div className="flex gap-3">
-        <div className="flex-shrink-0">
-          <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-            <span className="text-primary-700 text-sm font-semibold">
-              {comment.user.name.charAt(0)}
+    <div className="flex gap-3 rounded-lg bg-neutral-50 p-4 dark:bg-neutral-800">
+      {/* Avatar */}
+      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-950">
+        <span className="text-sm font-medium text-primary-600 dark:text-primary-400">
+          {getInitials(comment.user.name)}
+        </span>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1">
+        <div className="mb-1 flex items-center justify-between">
+          <div>
+            <span className="font-medium text-neutral-900 dark:text-neutral-50">
+              {comment.user.name}
+            </span>
+            <span className="ml-2 text-xs text-neutral-500 dark:text-neutral-400">
+              {formatRelativeTime(comment.createdAt)}
             </span>
           </div>
+          {isOwner && !isEditing && (
+            <div className="flex gap-1">
+              <button
+                onClick={() => {
+                  setLocalEditContent(comment.content);
+                  onEdit(comment.id, comment.content);
+                }}
+                className="rounded p-1 text-neutral-600 hover:bg-neutral-200 dark:text-neutral-400 dark:hover:bg-neutral-700"
+              >
+                <Edit className="h-4 w-4" />
+              </button>
+              <button
+                onClick={handleDelete}
+                className="rounded p-1 text-error-600 hover:bg-error-50 dark:text-error-400 dark:hover:bg-error-950"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
 
-        <div className="flex-1">
-          <div className="bg-neutral-50 rounded-lg p-3">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <span className="font-medium text-neutral-900 text-sm">
-                  {comment.user.name}
-                </span>
-                <span className="text-neutral-500 text-xs ml-2">
-                  {new Date(comment.createdAt).toLocaleString()}
-                </span>
-              </div>
-
-              {isOwner && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setIsEditing(!isEditing)}
-                    className="text-xs text-primary-600 hover:text-primary-700"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    className="text-xs text-error-600 hover:text-error-700"
-                  >
-                    Delete
-                  </button>
-                </div>
+        {isEditing ? (
+          <div className="space-y-2">
+            <textarea
+              value={localEditContent}
+              onChange={(e) => setLocalEditContent(e.target.value)}
+              rows={3}
+              className={cn(
+                'w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm',
+                'focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50',
+                'dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100'
               )}
+            />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={handleSave}
+                disabled={updateComment.isPending}
+              >
+                {updateComment.isPending ? 'Saving...' : 'Save'}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setLocalEditContent(comment.content);
+                  onCancelEdit();
+                }}
+              >
+                Cancel
+              </Button>
             </div>
-
-            {isEditing ? (
-              <div>
-                <textarea
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  className="w-full px-2 py-1 border border-neutral-300 rounded text-sm"
-                  rows={2}
-                />
-                <div className="mt-2 flex gap-2">
-                  <button
-                    onClick={handleEdit}
-                    disabled={updateComment.isPending}
-                    className="px-3 py-1 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={() => setIsEditing(false)}
-                    className="px-3 py-1 text-xs border border-neutral-300 rounded hover:bg-neutral-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-neutral-700 whitespace-pre-wrap">
-                {comment.content}
-              </p>
-            )}
           </div>
-
-          {!isReply && (
-            <button
-              onClick={() => setReplyingTo(comment.id)}
-              className="mt-1 text-xs text-primary-600 hover:text-primary-700"
-            >
-              Reply
-            </button>
-          )}
-
-          {replyingTo === comment.id && (
-            <div className="mt-2">
-              <textarea
-                value={replyContent}
-                onChange={(e) => setReplyContent(e.target.value)}
-                placeholder="Write a reply..."
-                className="w-full px-2 py-1 border border-neutral-300 rounded text-sm"
-                rows={2}
-              />
-              <div className="mt-2 flex gap-2">
-                <button
-                  onClick={() => onSubmitReply(comment.id)}
-                  className="px-3 py-1 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
-                >
-                  Reply
-                </button>
-                <button
-                  onClick={() => {
-                    setReplyingTo(null);
-                    setReplyContent('');
-                  }}
-                  className="px-3 py-1 text-xs border border-neutral-300 rounded hover:bg-neutral-50"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Render Replies */}
-          {replies.length > 0 && (
-            <div className="mt-2 space-y-2">
-              {replies.map((reply) => (
-                <CommentItem
-                  key={reply.id}
-                  comment={reply}
-                  issueId={issueId}
-                  currentUserId={currentUserId}
-                  replyingTo={replyingTo}
-                  setReplyingTo={setReplyingTo}
-                  replyContent={replyContent}
-                  setReplyContent={setReplyContent}
-                  onSubmitReply={onSubmitReply}
-                  isReply
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        ) : (
+          <p className="text-sm text-neutral-700 dark:text-neutral-300">
+            {comment.content}
+          </p>
+        )}
       </div>
     </div>
   );
