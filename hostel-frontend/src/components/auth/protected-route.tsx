@@ -1,37 +1,28 @@
-
 'use client';
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/store/auth.store';
+import { useAuth } from '@/hooks/use-auth';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requireRole?: 'STUDENT' | 'MANAGEMENT';
+  requireRole?: 'STUDENT' | 'STAFF' | 'MANAGEMENT' | ('STUDENT' | 'STAFF' | 'MANAGEMENT')[];
 }
 
 export function ProtectedRoute({ children, requireRole }: ProtectedRouteProps) {
   const router = useRouter();
-  const { isAuthenticated, user, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push('/login');
-      return;
     }
-
-    if (!isLoading && requireRole && user?.role !== requireRole) {
-      router.push('/403'); // Forbidden
-    }
-  }, [isAuthenticated, isLoading, requireRole, user, router]);
+  }, [isAuthenticated, isLoading, router]);
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-neutral-600">Loading...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
     );
   }
@@ -40,8 +31,14 @@ export function ProtectedRoute({ children, requireRole }: ProtectedRouteProps) {
     return null;
   }
 
-  if (requireRole && user?.role !== requireRole) {
-    return null;
+  // Check role requirements
+  if (requireRole && user) {
+    const allowedRoles = Array.isArray(requireRole) ? requireRole : [requireRole];
+    
+    if (!allowedRoles.includes(user.role)) {
+      router.push('/403');
+      return null;
+    }
   }
 
   return <>{children}</>;
