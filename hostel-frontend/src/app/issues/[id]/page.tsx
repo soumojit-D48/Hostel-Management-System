@@ -1,178 +1,190 @@
 'use client';
 
-import { useParams } from 'next/navigation';
-import { ProtectedRoute } from '@/components/auth/protected-route';
-import { useIssue } from '@/hooks/queries/use-issues';
-import { useAuth } from '@/hooks/use-auth';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
+import { useIssue, useSimilarIssues } from '@/hooks/queries/use-issues';
+import { AppShell } from '@/components/layout/app-shell';
+import { IssueHeader } from '@/components/issues/issue-header';
+import { IssueImagesGallery } from '@/components/issues/issue-images-gallery';
+import { AssignmentInfoCard } from '@/components/issues/assignment-info-card';
 import { CommentsSection } from '@/components/issues/comments-section';
 import { ReactionsBar } from '@/components/issues/reactions-bar';
-
-
-function IssueDetailContent() {
-    const params = useParams();
-    const issueId = params.id as string;
-    const { user } = useAuth();
-
-    const { data: issue, isLoading, error } = useIssue(issueId);
-
-    if (isLoading) {
-        return (
-            <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-            </div>
-        );
-    }
-
-    if (error || !issue) {
-        return (
-            <div className="min-h-screen bg-neutral-50 p-8">
-                <div className="max-w-4xl mx-auto">
-                    <div className="bg-error-50 border border-error-200 text-error-700 px-4 py-3 rounded">
-                        Issue not found or error loading issue
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    const isOwner = user?.id === issue.reportedBy.id;
-    const isManagement = user?.role === 'MANAGEMENT';
-
-    return (
-        <div className="min-h-screen bg-neutral-50">
-            <div className="bg-white shadow">
-                <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                    <div className="flex items-center justify-between">
-                        <h1 className="text-2xl font-bold text-neutral-900">Issue Details</h1>
-                        <div className="flex gap-2">
-                            <span className={`px-3 py-1 text-sm font-medium rounded ${issue.status === 'RESOLVED' ? 'bg-success-100 text-success-700' :
-                                    issue.status === 'IN_PROGRESS' ? 'bg-info-100 text-info-700' :
-                                        issue.status === 'ASSIGNED' ? 'bg-warning-100 text-warning-700' :
-                                            'bg-neutral-100 text-neutral-700'
-                                }`}>
-                                {issue.status}
-                            </span>
-                            <span className={`px-3 py-1 text-sm font-medium rounded ${issue.priority === 'URGENT' ? 'bg-error-100 text-error-700' :
-                                    issue.priority === 'HIGH' ? 'bg-warning-100 text-warning-700' :
-                                        'bg-neutral-100 text-neutral-700'
-                                }`}>
-                                {issue.priority}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-                {/* Issue Header */}
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h2 className="text-2xl font-bold text-neutral-900 mb-4">
-                        {issue.title}
-                    </h2>
-
-                    <div className="flex items-center gap-4 text-sm text-neutral-600 mb-4">
-                        <span className="px-2 py-1 bg-neutral-100 rounded">
-                            {issue.category}
-                        </span>
-                        <span>
-                            Reported by: <strong>{issue.reportedBy.name}</strong>
-                        </span>
-                        <span>
-                            {new Date(issue.createdAt).toLocaleDateString()}
-                        </span>
-                    </div>
-
-                    <div className="prose max-w-none">
-                        <p className="text-neutral-700 whitespace-pre-wrap">{issue.description}</p>
-                    </div>
-
-                    <div className="mt-4 pt-4 border-t border-neutral-200">
-                        <ReactionsBar issueId={issueId} />
-                    </div>
-
-
-                    {(issue.location || issue.roomNumber) && (
-                        <div className="mt-4 flex gap-4 text-sm">
-                            {issue.location && (
-                                <div>
-                                    <span className="text-neutral-600">Location:</span>{' '}
-                                    <strong>{issue.location}</strong>
-                                </div>
-                            )}
-                            {issue.roomNumber && (
-                                <div>
-                                    <span className="text-neutral-600">Room:</span>{' '}
-                                    <strong>{issue.roomNumber}</strong>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* Images */}
-                {issue.images && issue.images.length > 0 && (
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <h3 className="text-lg font-semibold text-neutral-900 mb-4">Images</h3>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                            {issue.images.map((img, idx) => (
-                                <img
-                                    key={idx}
-                                    src={img}
-                                    alt={`Issue image ${idx + 1}`}
-                                    className="w-full h-48 object-cover rounded cursor-pointer hover:opacity-90"
-                                    onClick={() => window.open(img, '_blank')}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Assigned To */}
-                {issue.assignedTo && (
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <h3 className="text-lg font-semibold text-neutral-900 mb-4">Assigned To</h3>
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-                                <span className="text-primary-700 font-semibold">
-                                    {issue.assignedTo.name.charAt(0)}
-                                </span>
-                            </div>
-                            <div>
-                                <p className="font-medium text-neutral-900">{issue.assignedTo.name}</p>
-                                <p className="text-sm text-neutral-600">{issue.assignedTo.email}</p>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Management Actions */}
-                {isManagement && (
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <h3 className="text-lg font-semibold text-neutral-900 mb-4">
-                            Management Actions
-                        </h3>
-                        <div className="flex gap-4">
-                            <button className="px-4 py-2 bg-info-600 text-white rounded-md hover:bg-info-700">
-                                Update Status
-                            </button>
-                            <button className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700">
-                                Assign Issue
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {/* Comments Section  */}
-                <CommentsSection issueId={issueId} />
-            </div>
-        </div>
-    );
-}
+import { IssueCard } from '@/components/issues/issue-card';
+import { Button } from '@/components/ui/button';
 
 export default function IssueDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const issueId = params.id as string;
+
+  const { data: issue, isLoading } = useIssue(issueId);
+  const { data: similarIssues } = useSimilarIssues(issueId);
+
+  if (isLoading) {
     return (
-        <ProtectedRoute>
-            <IssueDetailContent />
-        </ProtectedRoute>
+      <AppShell>
+        <div className="space-y-6">
+          <div className="skeleton h-12 w-32" />
+          <div className="skeleton h-64 rounded-xl" />
+          <div className="skeleton h-96 rounded-xl" />
+        </div>
+      </AppShell>
     );
+  }
+
+  if (!issue) {
+    return (
+      <AppShell>
+        <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
+          <h2 className="mb-4 text-2xl font-bold text-neutral-900 dark:text-neutral-50">
+            Issue Not Found
+          </h2>
+          <p className="mb-6 text-neutral-600 dark:text-neutral-400">
+            The issue you're looking for doesn't exist or has been removed.
+          </p>
+          <Link href="/issues">
+            <Button className="btn-primary">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Issues
+            </Button>
+          </Link>
+        </div>
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell>
+      <div className="space-y-6">
+        {/* Back Button */}
+        <Link href="/issues">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Issues
+          </Button>
+        </Link>
+
+        {/* Two Column Layout */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Main Content - Left Column (2/3) */}
+          <div className="space-y-6 lg:col-span-2">
+            {/* Header */}
+            <IssueHeader
+              issue={issue}
+              onEdit={() => router.push(`/issues/${issueId}/edit`)}
+              onAssign={() => {/* TODO: Open assign modal */}}
+              onUpdateStatus={() => {/* TODO: Open status modal */}}
+              onDelete={() => {/* TODO: Implement delete */}}
+            />
+
+            {/* Images */}
+            {issue.images && issue.images.length > 0 && (
+              <div>
+                <h3 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                  Images
+                </h3>
+                <IssueImagesGallery images={issue.images} />
+              </div>
+            )}
+
+            {/* Description */}
+            <div className="card">
+              <h3 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                Description
+              </h3>
+              <p className="whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">
+                {issue.description}
+              </p>
+              {issue.location && (
+                <div className="mt-4 rounded-lg bg-neutral-50 p-3 dark:bg-neutral-800">
+                  <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
+                    Location
+                  </p>
+                  <p className="text-neutral-900 dark:text-neutral-50">
+                    {issue.location}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Reactions */}
+            <div>
+              <h3 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                Reactions
+              </h3>
+              <ReactionsBar issueId={issueId} />
+            </div>
+
+            {/* Comments */}
+            <CommentsSection issueId={issueId} />
+          </div>
+
+          {/* Sidebar - Right Column (1/3) */}
+          <div className="space-y-6">
+            {/* Assignment Info */}
+            <AssignmentInfoCard issue={issue} />
+
+            {/* Similar Issues */}
+            {similarIssues && similarIssues.length > 0 && (
+              <div>
+                <h3 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                  Similar Issues
+                </h3>
+                <div className="space-y-3">
+                  {similarIssues.slice(0, 3).map((similarIssue) => (
+                    <IssueCard key={similarIssue.id} issue={similarIssue} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Merged Issues Info */}
+            {issue.isMerged && issue.mergedIntoId && (
+              <div className="card border-l-4 border-warning-600 dark:border-warning-400">
+                <h3 className="mb-2 font-semibold text-warning-700 dark:text-warning-300">
+                  Merged Issue
+                </h3>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  This issue has been merged into:{' '}
+                  <Link
+                    href={`/issues/${issue.mergedIntoId}`}
+                    className="font-medium text-primary-600 hover:underline dark:text-primary-400"
+                  >
+                    {issue.mergedIntoTitle}
+                  </Link>
+                </p>
+              </div>
+            )}
+
+            {issue.mergedIssues && issue.mergedIssues.length > 0 && (
+              <div className="card">
+                <h3 className="mb-3 font-semibold text-neutral-900 dark:text-neutral-50">
+                  Merged Issues ({issue.mergedIssues.length})
+                </h3>
+                <div className="space-y-2">
+                  {issue.mergedIssues.map((merged) => (
+                    <div
+                      key={merged.id}
+                      className="rounded-lg bg-neutral-50 p-3 dark:bg-neutral-800"
+                    >
+                      <Link
+                        href={`/issues/${merged.id}`}
+                        className="text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
+                      >
+                        {merged.title}
+                      </Link>
+                      <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                        by {merged.reportedBy.name}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </AppShell>
+  );
 }

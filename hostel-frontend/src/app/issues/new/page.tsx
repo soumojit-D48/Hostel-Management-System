@@ -2,275 +2,376 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ProtectedRoute } from '@/components/auth/protected-route';
-import { useCreateIssue } from '@/hooks/mutations/use-create-issue';
-import { IssueCategory, IssuePriority, IssueVisibility } from '@/types/issue.types';
+import Link from 'next/link';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { toast } from 'sonner';
+import { ArrowLeft, Upload, Plus } from 'lucide-react';
+import { AppShell } from '@/components/layout';
+import { ImageUploadPreview } from '@/components/issues/image-upload-preview';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { createIssueSchema, type CreateIssueFormData } from '@/schemas/index';
+import { apiUpload } from '@/lib/api-client';
+import { cn } from '@/lib/utils';
 
-function CreateIssueContent() {
+// Must match issueCategoryEnum in schemas/issue.schema.ts
+const categories = [
+  'PLUMBING',
+  'ELECTRICAL',
+  'FURNITURE',
+  'CLEANLINESS',
+  'INTERNET',
+  'SECURITY',
+  'NOISE',
+  'OTHER',
+];
+
+// Must match issuePriorityEnum in schemas/issue.schema.ts
+const priorities = ['LOW', 'MEDIUM', 'HIGH', 'EMERGENCY'];
+
+export default function CreateIssuePage() {
   const router = useRouter();
-  const createIssue = useCreateIssue();
-
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    category: 'OTHER' as IssueCategory,
-    priority: 'MEDIUM' as IssuePriority,
-    visibility: 'PUBLIC' as IssueVisibility,
-    location: '',
-    roomNumber: '',
-  });
-
   const [images, setImages] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<CreateIssueFormData>({
+    resolver: zodResolver(createIssueSchema),
+    defaultValues: {
+      title: '',
+      description: '',
+      category: 'OTHER' as const,
+      priority: 'MEDIUM' as const,
+      visibility: 'PUBLIC',
+      location: '',
+      roomNumber: '',
+    },
+  });
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    
-    if (files.length + images.length > 5) {
-      alert('Maximum 5 images allowed');
+
+    // Validate total count
+    if (images.length + files.length > 5) {
+      toast.error('Maximum 5 images allowed');
       return;
     }
 
-    setImages(prev => [...prev, ...files]);
-
-    // Create previews
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreviews(prev => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
+    // Validate file types and sizes
+    const validFiles = files.filter((file) => {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`${file.name} is too large (max 5MB)`);
+        return false;
+      }
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} is not an image`);
+        return false;
+      }
+      return true;
     });
+
+    setImages((prev) => [...prev, ...validFiles]);
   };
 
   const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
-    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const onSubmit = async (data: CreateIssueFormData) => {
+    setIsSubmitting(true);
     try {
-      await createIssue.mutateAsync({
-        ...formData,
-        images,
+      // Create FormData
+      const formData = new FormData();
+      formData.append('title', data.title);
+      formData.append('description', data.description);
+      formData.append('category', data.category);
+      formData.append('priority', data.priority);
+      formData.append('visibility', data.visibility);
+      if (data.location) formData.append('location', data.location);
+      if (data.roomNumber) formData.append('roomNumber', data.roomNumber);
+
+      // Append images
+      images.forEach((image) => {
+        formData.append('images', image);
       });
 
-      router.push('/issues');
-    } catch (error) {
-      console.error('Create issue error:', error);
+      // Submit — use apiUpload so the browser sets Content-Type with boundary automatically
+      const response = await apiUpload<{ data: { id: string } }>('/issues', formData);
+
+      toast.success('Issue created successfully!');
+      router.push(`/issues/${response?.data?.id}`);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create issue');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <div className="bg-white shadow">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <h1 className="text-2xl font-bold text-neutral-900">Report Issue</h1>
+    <AppShell>
+      <div className="mx-auto max-w-3xl space-y-6">
+        {/* Back Button */}
+        <Link href="/issues">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Issues
+          </Button>
+        </Link>
+
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-50">
+            Report New Issue
+          </h1>
+          <p className="mt-2 text-neutral-600 dark:text-neutral-400">
+            Help us improve by reporting issues you encounter
+          </p>
         </div>
-      </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-6">
+        {/* Form */}
+        <form onSubmit={handleSubmit(onSubmit)} className="card space-y-6">
           {/* Title */}
-          <div>
-            <label htmlFor="title" className="block text-sm font-medium text-neutral-700 mb-1">
-              Issue Title *
+          <div className="space-y-2">
+            <label htmlFor="title" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Title <span className="text-error-600">*</span>
             </label>
-            <input
+            <Input
               id="title"
-              name="title"
               type="text"
-              required
-              value={formData.title}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-              placeholder="Brief description of the issue"
+              placeholder="Brief summary of the issue"
+              {...register('title')}
+              aria-invalid={!!errors.title}
+              disabled={isSubmitting}
             />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-neutral-700 mb-1">
-              Description *
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              required
-              rows={5}
-              value={formData.description}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-              placeholder="Detailed description of the issue"
-            />
-          </div>
-
-          {/* Category and Priority */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="category" className="block text-sm font-medium text-neutral-700 mb-1">
-                Category *
-              </label>
-              <select
-                id="category"
-                name="category"
-                required
-                value={formData.category}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-              >
-                <option value="PLUMBING">Plumbing</option>
-                <option value="ELECTRICAL">Electrical</option>
-                <option value="FURNITURE">Furniture</option>
-                <option value="CLEANING">Cleaning</option>
-                <option value="INTERNET">Internet</option>
-                <option value="SECURITY">Security</option>
-                <option value="OTHER">Other</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="priority" className="block text-sm font-medium text-neutral-700 mb-1">
-                Priority *
-              </label>
-              <select
-                id="priority"
-                name="priority"
-                required
-                value={formData.priority}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-              >
-                <option value="LOW">Low</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="HIGH">High</option>
-                <option value="URGENT">Urgent</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Location and Room */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="location" className="block text-sm font-medium text-neutral-700 mb-1">
-                Location
-              </label>
-              <input
-                id="location"
-                name="location"
-                type="text"
-                value={formData.location}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                placeholder="e.g., Common Room, Floor 2"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="roomNumber" className="block text-sm font-medium text-neutral-700 mb-1">
-                Room Number
-              </label>
-              <input
-                id="roomNumber"
-                name="roomNumber"
-                type="text"
-                value={formData.roomNumber}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                placeholder="e.g., 101"
-              />
-            </div>
-          </div>
-
-          {/* Visibility */}
-          <div>
-            <label htmlFor="visibility" className="block text-sm font-medium text-neutral-700 mb-1">
-              Visibility *
-            </label>
-            <select
-              id="visibility"
-              name="visibility"
-              required
-              value={formData.visibility}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-            >
-              <option value="PUBLIC">Public (visible to all)</option>
-              <option value="PRIVATE">Private (only management)</option>
-            </select>
-          </div>
-
-          {/* Image Upload */}
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Images (Max 5)
-            </label>
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleImageChange}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-            />
-            
-            {imagePreviews.length > 0 && (
-              <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-4">
-                {imagePreviews.map((preview, index) => (
-                  <div key={index} className="relative">
-                    <img
-                      src={preview}
-                      alt={`Preview ${index + 1}`}
-                      className="w-full h-32 object-cover rounded"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      className="absolute top-1 right-1 bg-error-600 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-error-700"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
+            {errors.title && (
+              <p className="text-xs text-error-600 dark:text-error-400">
+                {errors.title.message}
+              </p>
             )}
           </div>
 
-          {/* Submit Buttons */}
-          <div className="flex gap-4">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="flex-1 px-4 py-2 border border-neutral-300 rounded-md text-neutral-700 hover:bg-neutral-50"
-            >
-              Cancel
-            </button>
-            <button
+          {/* Description */}
+          <div className="space-y-2">
+            <label htmlFor="description" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Description <span className="text-error-600">*</span>
+            </label>
+            <textarea
+              id="description"
+              rows={6}
+              placeholder="Provide detailed information about the issue..."
+              {...register('description')}
+              disabled={isSubmitting}
+              className={cn(
+                'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-xs',
+                'focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+                'dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100',
+                errors.description && 'border-error-500'
+              )}
+            />
+            {errors.description && (
+              <p className="text-xs text-error-600 dark:text-error-400">
+                {errors.description.message}
+              </p>
+            )}
+          </div>
+
+          {/* Category, Priority, Visibility */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <label htmlFor="category" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                Category <span className="text-error-600">*</span>
+              </label>
+              <select
+                id="category"
+                {...register('category')}
+                disabled={isSubmitting}
+                className={cn(
+                  'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-xs',
+                  'focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50',
+                  'disabled:cursor-not-allowed disabled:opacity-50',
+                  'dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100',
+                  errors.category && 'border-error-500'
+                )}
+              >
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+              {errors.category && (
+                <p className="text-xs text-error-600 dark:text-error-400">
+                  {errors.category.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="priority" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                Priority <span className="text-error-600">*</span>
+              </label>
+              <select
+                id="priority"
+                {...register('priority')}
+                disabled={isSubmitting}
+                className={cn(
+                  'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-xs',
+                  'focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50',
+                  'disabled:cursor-not-allowed disabled:opacity-50',
+                  'dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100',
+                  errors.priority && 'border-error-500'
+                )}
+              >
+                {priorities.map((pri) => (
+                  <option key={pri} value={pri}>
+                    {pri}
+                  </option>
+                ))}
+              </select>
+              {errors.priority && (
+                <p className="text-xs text-error-600 dark:text-error-400">
+                  {errors.priority.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="visibility" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                Visibility <span className="text-error-600">*</span>
+              </label>
+              <select
+                id="visibility"
+                {...register('visibility')}
+                disabled={isSubmitting}
+                className={cn(
+                  'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-xs',
+                  'focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50',
+                  'disabled:cursor-not-allowed disabled:opacity-50',
+                  'dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100'
+                )}
+              >
+                <option value="PUBLIC">Public</option>
+                <option value="PRIVATE">Private</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Location & Room Number */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label htmlFor="location" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                Location
+              </label>
+              <Input
+                id="location"
+                type="text"
+                placeholder="e.g., Common Room, 2nd Floor"
+                {...register('location')}
+                disabled={isSubmitting}
+              />
+              {errors.location && (
+                <p className="text-xs text-error-600 dark:text-error-400">
+                  {errors.location.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="roomNumber" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                Room Number
+              </label>
+              <Input
+                id="roomNumber"
+                type="text"
+                placeholder="e.g., 101"
+                {...register('roomNumber')}
+                disabled={isSubmitting}
+              />
+              {errors.roomNumber && (
+                <p className="text-xs text-error-600 dark:text-error-400">
+                  {errors.roomNumber.message}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Images Upload */}
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Images (Optional - Max 5)
+            </label>
+
+            <div>
+              <label
+                htmlFor="images"
+                className={cn(
+                  'flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors',
+                  'border-neutral-300 hover:border-primary-400 dark:border-neutral-700 dark:hover:border-primary-600',
+                  images.length >= 5 && 'cursor-not-allowed opacity-50'
+                )}
+              >
+                <div className="text-center">
+                  <Upload className="mx-auto h-8 w-8 text-neutral-400" />
+                  <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                    Click to upload images
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    PNG, JPG, WEBP up to 5MB each
+                  </p>
+                </div>
+                <input
+                  id="images"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageChange}
+                  disabled={isSubmitting || images.length >= 5}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            {/* Image Previews */}
+            <ImageUploadPreview images={images} onRemove={removeImage} />
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3">
+            <Link href="/issues" className="flex-1">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+            </Link>
+            <Button
               type="submit"
-              disabled={createIssue.isPending}
-              className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary flex-1"
+              disabled={isSubmitting}
             >
-              {createIssue.isPending ? 'Creating...' : 'Report Issue'}
-            </button>
+              {isSubmitting ? (
+                <>
+                  <span className="spinner mr-2 h-4 w-4" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Issue
+                </>
+              )}
+            </Button>
           </div>
         </form>
       </div>
-    </div>
-  );
-}
-
-export default function CreateIssuePage() {
-  return (
-    <ProtectedRoute>
-      <CreateIssueContent />
-    </ProtectedRoute>
+    </AppShell>
   );
 }
