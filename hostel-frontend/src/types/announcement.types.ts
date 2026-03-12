@@ -1,20 +1,16 @@
 export type AnnouncementCategory =
-  | 'GENERAL'
-  | 'MAINTENANCE'
-  | 'EVENTS'
-  | 'RULES'
-  | 'EMERGENCY'
   | 'CLEANING_SCHEDULE'
   | 'PEST_CONTROL'
   | 'MAINTENANCE_NOTICE'
-  | 'WATER_ELECTRICITY';
+  | 'WATER_ELECTRICITY'
+  | 'GENERAL';
 
 export interface Announcement {
   id: string;
   title: string;
   content: string;
   category: AnnouncementCategory;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH';
+  priority: boolean;
   images?: string[];
   attachments?: {
     name: string;
@@ -44,7 +40,7 @@ export interface CreateAnnouncementRequest {
   title: string;
   content: string;
   category: AnnouncementCategory;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH';
+  priority: boolean;
   hostelId?: string;
   blockIds?: string[];
   targetRoles: ('STUDENT' | 'STAFF' | 'MANAGEMENT')[];
