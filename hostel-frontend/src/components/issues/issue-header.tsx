@@ -27,16 +27,17 @@ const priorityColors = {
   LOW: 'badge-success',
   MEDIUM: 'badge-warning',
   HIGH: 'badge-error',
-  URGENT: 'badge-error',
+  EMERGENCY: 'badge-error',
 };
 
 const categoryColors = {
   PLUMBING: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400',
   ELECTRICAL: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400',
   FURNITURE: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400',
-  CLEANING: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400',
+  CLEANLINESS: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400',
   INTERNET: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400',
   SECURITY: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400',
+  NOISE: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400',
   OTHER: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-400',
 };
 

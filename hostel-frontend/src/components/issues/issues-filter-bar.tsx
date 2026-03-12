@@ -19,8 +19,8 @@ interface IssuesFilterBarProps {
 }
 
 const statuses = ['REPORTED', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
-const categories = ['PLUMBING', 'ELECTRICAL', 'FURNITURE', 'CLEANING', 'INTERNET', 'SECURITY', 'OTHER'];
-const priorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+const categories = ['PLUMBING', 'ELECTRICAL', 'FURNITURE', 'CLEANLINESS', 'INTERNET', 'SECURITY', 'NOISE', 'OTHER'];
+const priorities = ['LOW', 'MEDIUM', 'HIGH', 'EMERGENCY'];
 
 export function IssuesFilterBar({ onFilterChange }: IssuesFilterBarProps) {
   const [filters, setFilters] = useState<FilterValues>({});

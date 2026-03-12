@@ -9,12 +9,13 @@ export type IssueCategory =
   | 'PLUMBING'
   | 'ELECTRICAL'
   | 'FURNITURE'
-  | 'CLEANING'
+  | 'CLEANLINESS'
   | 'INTERNET'
   | 'SECURITY'
+  | 'NOISE'
   | 'OTHER';
 
-export type IssuePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+export type IssuePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'EMERGENCY';
 
 export type IssueVisibility = 'PUBLIC' | 'PRIVATE';
 
