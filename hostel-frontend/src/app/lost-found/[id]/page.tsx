@@ -2,208 +2,243 @@
 
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ProtectedRoute } from '@/components/auth/protected-route';
+import Link from 'next/link';
+import { ArrowLeft, Calendar, MapPin, User, CheckCircle } from 'lucide-react';
 import { useLostFoundItem } from '@/hooks/queries/use-lost-found';
-import { useCreateClaim } from '@/hooks/mutations/use-lost-found-mutations';
 import { useAuth } from '@/hooks/use-auth';
+import { useMarkItemReturned } from '@/hooks/mutations/use-lost-found-mutations';
+import { AppShell } from '@/components/layout';
+import { IssueImagesGallery } from '@/components/issues/issue-images-gallery';
+import { ClaimItemDialog } from '@/components/lost-found/claim-item-dialog';
+import { ManageClaims } from '@/components/lost-found/manage-claims';
+import { Button } from '@/components/ui/button';
+import { formatRelativeTime } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
-function LostFoundDetailContent() {
+const statusColors = {
+  LOST: 'badge-error',
+  FOUND: 'badge-warning',
+  CLAIMED: 'badge-info',
+  RETURNED: 'badge-success',
+};
+
+const categoryColors = {
+  ELECTRONICS: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400',
+  CLOTHING: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400',
+  BOOKS: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400',
+  ACCESSORIES: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400',
+  DOCUMENTS: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400',
+  KEYS: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400',
+  OTHER: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-400',
+};
+
+export default function LostFoundDetailPage() {
   const params = useParams();
   const itemId = params.id as string;
-  const { user } = useAuth();
+  const { user, isStaffOrManagement } = useAuth();
+  const { data: item, isLoading } = useLostFoundItem(itemId);
+  const markReturned = useMarkItemReturned(itemId);
+  const [showClaimDialog, setShowClaimDialog] = useState(false);
 
-  const { data: item, isLoading, error } = useLostFoundItem(itemId);
-  const createClaim = useCreateClaim(itemId);
+  const canClaim = item && item.status === 'FOUND' && item.reportedBy.id !== user?.id;
+  const canManageClaims = isStaffOrManagement;
+  const canMarkReturned = item && item.status === 'CLAIMED' && isStaffOrManagement;
 
-  const [showClaimForm, setShowClaimForm] = useState(false);
-  const [claimData, setClaimData] = useState({
-    verificationDetails: '',
-    proofImage: null as File | null,
-  });
-
-  const isOwner = user?.id === item?.reportedBy.id;
-  const hasClaimed = item?.claims?.some(c => c.claimantId === user?.id);
-
-  const handleClaimSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleMarkReturned = async () => {
+    if (!confirm('Mark this item as returned? This action cannot be undone.')) {
+      return;
+    }
     try {
-      await createClaim.mutateAsync({
-        verificationDetails: claimData.verificationDetails,
-        proofImage: claimData.proofImage || undefined,
-      });
-      setShowClaimForm(false);
-      setClaimData({ verificationDetails: '', proofImage: null });
+      await markReturned.mutateAsync();
     } catch (error) {
-      console.error('Claim error:', error);
+      // Error handled by mutation
     }
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
+      <AppShell>
+        <div className="space-y-6">
+          <div className="skeleton h-12 w-32" />
+          <div className="skeleton h-64 rounded-xl" />
+        </div>
+      </AppShell>
     );
   }
 
-  if (error || !item) {
+  if (!item) {
     return (
-      <div className="min-h-screen bg-neutral-50 p-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-error-50 border border-error-200 text-error-700 px-4 py-3 rounded">
-            Item not found
-          </div>
+      <AppShell>
+        <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
+          <h2 className="mb-4 text-2xl font-bold text-neutral-900 dark:text-neutral-50">
+            Item Not Found
+          </h2>
+          <Link href="/lost-found">
+            <Button className="btn-primary">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Lost & Found
+            </Button>
+          </Link>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <div className="bg-white shadow">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-3">
-            <span className={`px-3 py-1 text-sm font-medium rounded ${
-              item.status === 'LOST' 
-                ? 'bg-error-100 text-error-700'
-                : item.status === 'FOUND'
-                ? 'bg-success-100 text-success-700'
-                : item.status === 'CLAIMED'
-                ? 'bg-warning-100 text-warning-700'
-                : 'bg-neutral-100 text-neutral-700'
-            }`}>
-              {item.status}
-            </span>
-            <span className="px-3 py-1 text-sm font-medium rounded bg-neutral-100 text-neutral-700">
-              {item.category}
-            </span>
-          </div>
-        </div>
-      </div>
+    <AppShell>
+      <div className="space-y-6">
+        <Link href="/lost-found">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Lost & Found
+          </Button>
+        </Link>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {/* Item Details */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h1 className="text-3xl font-bold text-neutral-900 mb-4">
-            {item.itemName}
-          </h1>
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Main Content */}
+          <div className="space-y-6 lg:col-span-2">
+            {/* Header */}
+            <div className="card">
+              <h1 className="mb-4 text-3xl font-bold text-neutral-900 dark:text-neutral-50">
+                {item.itemName}
+              </h1>
 
-          <div className="prose max-w-none mb-6">
-            <p className="text-neutral-700 whitespace-pre-wrap">{item.description}</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-neutral-600">Location:</span>{' '}
-              <strong>{item.location}</strong>
-            </div>
-            <div>
-              <span className="text-neutral-600">Date:</span>{' '}
-              <strong>{new Date(item.date).toLocaleDateString()}</strong>
-            </div>
-            <div>
-              <span className="text-neutral-600">Reported by:</span>{' '}
-              <strong>{item.reportedBy.name}</strong>
-            </div>
-            <div>
-              <span className="text-neutral-600">Posted:</span>{' '}
-              <strong>{new Date(item.createdAt).toLocaleDateString()}</strong>
-            </div>
-          </div>
-        </div>
-
-        {/* Images */}
-        {item.images && item.images.length > 0 && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-neutral-900 mb-4">Images</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {item.images.map((img, idx) => (
-                <img
-                  key={idx}
-                  src={img}
-                  alt={`Image ${idx + 1}`}
-                  className="w-full h-48 object-cover rounded cursor-pointer hover:opacity-90"
-                  onClick={() => window.open(img, '_blank')}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Claim Button / Form */}
-        {!isOwner && item.status !== 'RETURNED' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            {hasClaimed ? (
-              <div className="bg-info-50 border border-info-200 text-info-700 px-4 py-3 rounded">
-                You have already claimed this item. Please wait for management review.
+              <div className="mb-4 flex flex-wrap gap-2">
+                <span className={cn('badge', statusColors[item.status])}>
+                  {item.status}
+                </span>
+                <span className={cn('badge', categoryColors[item.category])}>
+                  {item.category}
+                </span>
               </div>
-            ) : showClaimForm ? (
-              <form onSubmit={handleClaimSubmit} className="space-y-4">
-                <h3 className="text-lg font-semibold text-neutral-900">Claim This Item</h3>
-                
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">
-                    Verification Details *
-                  </label>
-                  <textarea
-                    required
-                    rows={4}
-                    value={claimData.verificationDetails}
-                    onChange={(e) => setClaimData(prev => ({ ...prev, verificationDetails: e.target.value }))}
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-md"
-                    placeholder="Describe the item in detail to verify ownership..."
-                  />
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">
-                    Proof Image (Optional)
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setClaimData(prev => ({ ...prev, proofImage: e.target.files?.[0] || null }))}
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-md"
-                  />
+              <div className="flex flex-wrap gap-4 text-sm text-neutral-600 dark:text-neutral-400">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  <span>{item.location}</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  <span>{formatRelativeTime(item.date)}</span>
+                </div>
+              </div>
+            </div>
 
-                <div className="flex gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowClaimForm(false)}
-                    className="flex-1 px-4 py-2 border border-neutral-300 rounded-md hover:bg-neutral-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={createClaim.isPending}
-                    className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50"
-                  >
-                    {createClaim.isPending ? 'Submitting...' : 'Submit Claim'}
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <button
-                onClick={() => setShowClaimForm(true)}
-                className="w-full px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
+            {/* Images */}
+            {item.images && item.images.length > 0 && (
+              <div className="card">
+                <h3 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                  Images
+                </h3>
+                <IssueImagesGallery images={item.images} />
+              </div>
+            )}
+
+            {/* Description */}
+            <div className="card">
+              <h3 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                Description
+              </h3>
+              <p className="whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">
+                {item.description}
+              </p>
+            </div>
+
+            {/* Claim Button */}
+            {canClaim && (
+              <Button
+                onClick={() => setShowClaimDialog(true)}
+                className="btn-primary w-full"
               >
                 Claim This Item
-              </button>
+              </Button>
+            )}
+
+            {/* Mark as Returned */}
+            {canMarkReturned && (
+              <Button
+                onClick={handleMarkReturned}
+                disabled={markReturned.isPending}
+                className="w-full bg-success-600 text-white hover:bg-success-700"
+              >
+                {markReturned.isPending ? (
+                  <>
+                    <span className="spinner mr-2 h-4 w-4" />
+                    Marking as Returned...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Mark as Returned
+                  </>
+                )}
+              </Button>
             )}
           </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
-export default function LostFoundDetailPage() {
-  return (
-    <ProtectedRoute>
-      <LostFoundDetailContent />
-    </ProtectedRoute>
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Reporter Info */}
+            <div className="card">
+              <h3 className="mb-3 font-semibold text-neutral-900 dark:text-neutral-50">
+                Reported By
+              </h3>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-950">
+                  <User className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-neutral-900 dark:text-neutral-50">
+                    {item.reportedBy.name}
+                  </p>
+                  <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                    {item.reportedBy.email}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Manage Claims (Staff/Management only) */}
+            {canManageClaims && <ManageClaims item={item} />}
+
+            {/* Claims Count */}
+            {item.claims && item.claims.length > 0 && (
+              <div className="card">
+                <h3 className="mb-2 font-semibold text-neutral-900 dark:text-neutral-50">
+                  Claims
+                </h3>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  {item.claims.length} {item.claims.length === 1 ? 'claim' : 'claims'} submitted
+                </p>
+                <div className="mt-3 space-y-1">
+                  {item.claims.map((claim) => (
+                    <div key={claim.id} className="flex items-center gap-2 text-xs">
+                      <span className={cn(
+                        'h-2 w-2 rounded-full',
+                        claim.status === 'PENDING' && 'bg-warning-500',
+                        claim.status === 'APPROVED' && 'bg-success-500',
+                        claim.status === 'REJECTED' && 'bg-error-500'
+                      )} />
+                      <span className="text-neutral-600 dark:text-neutral-400">
+                        {claim.claimant.name} - {claim.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Claim Dialog */}
+      <ClaimItemDialog
+        itemId={itemId}
+        itemName={item.itemName}
+        isOpen={showClaimDialog}
+        onClose={() => setShowClaimDialog(false)}
+        onSuccess={() => setShowClaimDialog(false)}
+      />
+    </AppShell>
   );
 }

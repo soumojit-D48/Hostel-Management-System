@@ -2,326 +2,335 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ProtectedRoute } from '@/components/auth/protected-route';
+import Link from 'next/link';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { toast } from 'sonner';
+import { ArrowLeft, Upload, Plus } from 'lucide-react';
 import { useCreateLostFound } from '@/hooks/mutations/use-lost-found-mutations';
-import { LostFoundCategory, LostFoundStatus } from '@/types/lost-found.types';
+import { AppShell } from '@/components/layout';
+import { ImageUploadPreview } from '@/components/issues/image-upload-preview';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { createLostFoundSchema, type CreateLostFoundFormData } from '@/schemas/lost-found.schema';
+import { cn } from '@/lib/utils';
 
-function CreateLostFoundContent() {
+const categories = ['ELECTRONICS', 'CLOTHING', 'BOOKS', 'ACCESSORIES', 'DOCUMENTS', 'KEYS', 'OTHER'];
+
+export default function CreateLostFoundPage() {
   const router = useRouter();
   const createItem = useCreateLostFound();
-
-  const [formData, setFormData] = useState({
-    itemName: '',
-    description: '',
-    category: 'OTHER' as LostFoundCategory,
-    status: 'LOST' as LostFoundStatus,
-    location: '',
-    date: new Date().toISOString().split('T')[0],
-  });
-
   const [images, setImages] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  const [potentialMatches, setPotentialMatches] = useState<any[]>([]);
-  const [showMatches, setShowMatches] = useState(false);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<CreateLostFoundFormData>({
+    resolver: zodResolver(createLostFoundSchema),
+    defaultValues: {
+      itemName: '',
+      description: '',
+      category: 'OTHER',
+      status: 'LOST',
+      location: '',
+      date: new Date().toISOString().split('T')[0],
+    },
+  });
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     
-    if (files.length + images.length > 5) {
-      alert('Maximum 5 images allowed');
+    if (images.length + files.length > 3) {
+      toast.error('Maximum 3 images allowed');
       return;
     }
 
-    setImages(prev => [...prev, ...files]);
-
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreviews(prev => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
+    const validFiles = files.filter((file) => {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`${file.name} is too large (max 5MB)`);
+        return false;
+      }
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} is not an image`);
+        return false;
+      }
+      return true;
     });
+
+    setImages((prev) => [...prev, ...validFiles]);
   };
 
   const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
-    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const onSubmit = async (data: CreateLostFoundFormData) => {
     try {
       const result = await createItem.mutateAsync({
-        ...formData,
+        ...data,
         images,
       });
 
+      toast.success('Item reported successfully!');
+      
+      // Show potential matches if any
       if (result.potentialMatches && result.potentialMatches.length > 0) {
-        setPotentialMatches(result.potentialMatches);
-        setShowMatches(true);
-      } else {
-        router.push('/lost-found');
+        toast.info(`Found ${result.potentialMatches.length} potential match(es)!`, {
+          description: 'Check the lost & found list to see if any match your item.',
+        });
       }
-    } catch (error) {
-      console.error('Create item error:', error);
+
+      router.push(`/lost-found/${result.item.id}`);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to report item');
     }
   };
 
-  if (showMatches) {
-    return (
-      <div className="min-h-screen bg-neutral-50">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold text-neutral-900 mb-4">
-              Potential Matches Found!
-            </h2>
-            <p className="text-neutral-700 mb-6">
-              We found some items that might match yours:
-            </p>
-
-            <div className="space-y-4 mb-6">
-              {potentialMatches.map((match) => (
-                <div key={match.id} className="border border-neutral-200 rounded p-4">
-                  <div className="flex gap-4">
-                    {match.images?.[0] && (
-                      <img
-                        src={match.images[0]}
-                        alt={match.itemName}
-                        className="w-24 h-24 object-cover rounded"
-                      />
-                    )}
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-neutral-900">{match.itemName}</h3>
-                      <p className="text-sm text-neutral-600 mt-1">{match.description}</p>
-                      <div className="mt-2 text-xs text-neutral-500">
-                        <span>{match.location}</span> • <span>{new Date(match.date).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                    <a
-                      href={`/lost-found/${match.id}`}
-                      target="_blank"
-                      className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 self-start"
-                    >
-                      View
-                    </a>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <button
-              onClick={() => router.push('/lost-found')}
-              className="w-full px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
-            >
-              Continue to Lost & Found
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <div className="bg-white shadow">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <h1 className="text-2xl font-bold text-neutral-900">Report Lost/Found Item</h1>
-        </div>
-      </div>
+    <AppShell>
+      <div className="mx-auto max-w-3xl space-y-6">
+        <Link href="/lost-found">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Lost & Found
+          </Button>
+        </Link>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-6">
-          {/* Status */}
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-2">
-              Item Status *
+        <div>
+          <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-50">
+            Report Lost/Found Item
+          </h1>
+          <p className="mt-2 text-neutral-600 dark:text-neutral-400">
+            Help others find their belongings or claim what you've found
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="card space-y-6">
+          {/* Status Selection */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              I want to report <span className="text-error-600">*</span>
             </label>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className={cn(
+                'flex cursor-pointer items-center gap-3 rounded-lg border-2 p-4 transition-colors',
+                'border-neutral-200 hover:border-primary-400 dark:border-neutral-700 dark:hover:border-primary-600'
+              )}>
                 <input
                   type="radio"
-                  name="status"
                   value="LOST"
-                  checked={formData.status === 'LOST'}
-                  onChange={handleChange}
-                  className="w-4 h-4 text-primary-600"
+                  {...register('status')}
+                  disabled={createItem.isPending}
+                  className="h-4 w-4"
                 />
-                <span>I Lost This Item</span>
+                <div>
+                  <p className="font-medium text-neutral-900 dark:text-neutral-50">Lost Item</p>
+                  <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                    I lost something
+                  </p>
+                </div>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+
+              <label className={cn(
+                'flex cursor-pointer items-center gap-3 rounded-lg border-2 p-4 transition-colors',
+                'border-neutral-200 hover:border-primary-400 dark:border-neutral-700 dark:hover:border-primary-600'
+              )}>
                 <input
                   type="radio"
-                  name="status"
                   value="FOUND"
-                  checked={formData.status === 'FOUND'}
-                  onChange={handleChange}
-                  className="w-4 h-4 text-primary-600"
+                  {...register('status')}
+                  disabled={createItem.isPending}
+                  className="h-4 w-4"
                 />
-                <span>I Found This Item</span>
+                <div>
+                  <p className="font-medium text-neutral-900 dark:text-neutral-50">Found Item</p>
+                  <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                    I found something
+                  </p>
+                </div>
               </label>
             </div>
           </div>
 
           {/* Item Name */}
-          <div>
-            <label htmlFor="itemName" className="block text-sm font-medium text-neutral-700 mb-1">
-              Item Name *
+          <div className="space-y-2">
+            <label htmlFor="itemName" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Item Name <span className="text-error-600">*</span>
             </label>
-            <input
+            <Input
               id="itemName"
-              name="itemName"
               type="text"
-              required
-              value={formData.itemName}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md"
-              placeholder="e.g., Black Laptop Bag"
+              placeholder="e.g., Black iPhone 13, Red Backpack"
+              {...register('itemName')}
+              aria-invalid={!!errors.itemName}
+              disabled={createItem.isPending}
             />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-neutral-700 mb-1">
-              Description *
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              required
-              rows={4}
-              value={formData.description}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md"
-              placeholder="Detailed description..."
-            />
-          </div>
-
-          {/* Category and Location */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="category" className="block text-sm font-medium text-neutral-700 mb-1">
-                Category *
-              </label>
-              <select
-                id="category"
-                name="category"
-                required
-                value={formData.category}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md"
-              >
-                <option value="ELECTRONICS">Electronics</option>
-                <option value="CLOTHING">Clothing</option>
-                <option value="BOOKS">Books</option>
-                <option value="ACCESSORIES">Accessories</option>
-                <option value="DOCUMENTS">Documents</option>
-                <option value="OTHER">Other</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="location" className="block text-sm font-medium text-neutral-700 mb-1">
-                Location *
-              </label>
-              <input
-                id="location"
-                name="location"
-                type="text"
-                required
-                value={formData.location}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md"
-                placeholder="e.g., Library, 2nd Floor"
-              />
-            </div>
-          </div>
-
-          {/* Date */}
-          <div>
-            <label htmlFor="date" className="block text-sm font-medium text-neutral-700 mb-1">
-              Date {formData.status === 'LOST' ? 'Lost' : 'Found'} *
-            </label>
-            <input
-              id="date"
-              name="date"
-              type="date"
-              required
-              value={formData.date}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md"
-            />
-          </div>
-
-          {/* Images */}
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Images (Max 5)
-            </label>
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleImageChange}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md"
-            />
-            
-            {imagePreviews.length > 0 && (
-              <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-4">
-                {imagePreviews.map((preview, index) => (
-                  <div key={index} className="relative">
-                    <img
-                      src={preview}
-                      alt={`Preview ${index + 1}`}
-                      className="w-full h-32 object-cover rounded"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      className="absolute top-1 right-1 bg-error-600 text-white rounded-full w-6 h-6 flex items-center justify-center"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
+            {errors.itemName && (
+              <p className="text-xs text-error-600 dark:text-error-400">
+                {errors.itemName.message}
+              </p>
             )}
           </div>
 
-          {/* Submit */}
-          <div className="flex gap-4">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="flex-1 px-4 py-2 border border-neutral-300 rounded-md hover:bg-neutral-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
+          {/* Description */}
+          <div className="space-y-2">
+            <label htmlFor="description" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Description <span className="text-error-600">*</span>
+            </label>
+            <textarea
+              id="description"
+              rows={4}
+              placeholder="Describe the item in detail (brand, color, unique features, etc.)"
+              {...register('description')}
               disabled={createItem.isPending}
-              className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50"
+              className={cn(
+                'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-xs',
+                'focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+                'dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100',
+                errors.description && 'border-error-500'
+              )}
+            />
+            {errors.description && (
+              <p className="text-xs text-error-600 dark:text-error-400">
+                {errors.description.message}
+              </p>
+            )}
+          </div>
+
+          {/* Category, Location, Date */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <label htmlFor="category" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                Category <span className="text-error-600">*</span>
+              </label>
+              <select
+                id="category"
+                {...register('category')}
+                disabled={createItem.isPending}
+                className={cn(
+                  'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-xs',
+                  'focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50',
+                  'disabled:cursor-not-allowed disabled:opacity-50',
+                  'dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100'
+                )}
+              >
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="location" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                Location <span className="text-error-600">*</span>
+              </label>
+              <Input
+                id="location"
+                type="text"
+                placeholder="Where?"
+                {...register('location')}
+                aria-invalid={!!errors.location}
+                disabled={createItem.isPending}
+              />
+              {errors.location && (
+                <p className="text-xs text-error-600 dark:text-error-400">
+                  {errors.location.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="date" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                Date <span className="text-error-600">*</span>
+              </label>
+              <Input
+                id="date"
+                type="date"
+                {...register('date')}
+                aria-invalid={!!errors.date}
+                disabled={createItem.isPending}
+              />
+              {errors.date && (
+                <p className="text-xs text-error-600 dark:text-error-400">
+                  {errors.date.message}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Images Upload */}
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Images (Optional - Max 3)
+            </label>
+            <div>
+              <label
+                htmlFor="images"
+                className={cn(
+                  'flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors',
+                  'border-neutral-300 hover:border-primary-400 dark:border-neutral-700 dark:hover:border-primary-600',
+                  images.length >= 3 && 'cursor-not-allowed opacity-50'
+                )}
+              >
+                <div className="text-center">
+                  <Upload className="mx-auto h-8 w-8 text-neutral-400" />
+                  <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                    Click to upload images
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    PNG, JPG, WEBP up to 5MB each
+                  </p>
+                </div>
+                <input
+                  id="images"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageChange}
+                  disabled={createItem.isPending || images.length >= 3}
+                  className="hidden"
+                />
+              </label>
+            </div>
+            <ImageUploadPreview images={images} onRemove={removeImage} />
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3">
+            <Link href="/lost-found" className="flex-1">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={createItem.isPending}
+              >
+                Cancel
+              </Button>
+            </Link>
+            <Button
+              type="submit"
+              className="btn-primary flex-1"
+              disabled={createItem.isPending}
             >
-              {createItem.isPending ? 'Submitting...' : 'Report Item'}
-            </button>
+              {createItem.isPending ? (
+                <>
+                  <span className="spinner mr-2 h-4 w-4" />
+                  Reporting...
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Report Item
+                </>
+              )}
+            </Button>
           </div>
         </form>
       </div>
-    </div>
-  );
-}
-
-export default function CreateLostFoundPage() {
-  return (
-    <ProtectedRoute>
-      <CreateLostFoundContent />
-    </ProtectedRoute>
+    </AppShell>
   );
 }
