@@ -1,11 +1,12 @@
 export type LostFoundStatus = 'LOST' | 'FOUND' | 'CLAIMED' | 'RETURNED';
 
-export type LostFoundCategory = 
+export type LostFoundCategory =
   | 'ELECTRONICS'
   | 'CLOTHING'
   | 'BOOKS'
   | 'ACCESSORIES'
   | 'DOCUMENTS'
+  | 'KEYS'
   | 'OTHER';
 
 export interface LostFoundItem {
