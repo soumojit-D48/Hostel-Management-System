@@ -4,7 +4,7 @@ import { authenticate } from '../../shared/middleware/auth.middleware';
 import { authorize } from '../../shared/middleware/authorize.middleware';
 import { validateRequest } from '../../shared/middleware/validation.middleware';
 import { announcementUpload, handleUploadError } from '../../shared/middleware/upload.middleware';
-import { createAnnouncementSchema, getAnnouncementsSchema } from './announcement.validation';
+import { createAnnouncementSchema, getAnnouncementsSchema, updateAnnouncementSchema } from './announcement.validation';
 import { Role } from '@prisma/client';
 
 const router = Router();
@@ -46,6 +46,21 @@ router.get(
   '/:id',
   authenticate as any,
   announcementController.getAnnouncementById as any
+);
+
+router.patch(
+  '/:id',
+  authenticate as any,
+  authorize(Role.MANAGEMENT) as any,
+  validateRequest(updateAnnouncementSchema),
+  announcementController.updateAnnouncement as any
+);
+
+router.delete(
+  '/:id',
+  authenticate as any,
+  authorize(Role.MANAGEMENT) as any,
+  announcementController.deleteAnnouncement as any
 );
 
 export default router;

@@ -48,6 +48,7 @@ export const getAnnouncementsSchema = z.object({
   unreadOnly: z.enum(['true', 'false']).transform(val => val === 'true').optional(),
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().optional(),
+  search: z.string().optional(),
 });
 
 export const markAsReadSchema = z.object({

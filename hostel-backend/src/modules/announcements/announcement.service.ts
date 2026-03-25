@@ -626,6 +626,107 @@ class AnnouncementService {
     }
   }
 
+  /**
+   * Update an announcement
+   */
+  async updateAnnouncement(
+    announcementId: string,
+    data: UpdateAnnouncementInput,
+    managementUserId: string
+  ): Promise<AnnouncementWithRelations> {
+    const managementUser = await this.prisma.user.findUnique({
+      where: { id: managementUserId, role: Role.MANAGEMENT },
+    });
+
+    if (!managementUser) {
+      throw new Error('Only management users can update announcements');
+    }
+
+    const announcement = await this.prisma.announcement.findUnique({
+      where: { id: announcementId },
+    });
+
+    if (!announcement) {
+      throw new Error('Announcement not found');
+    }
+
+    if (data.hostelId !== undefined) {
+      if (data.hostelId) {
+        const hostel = await this.prisma.hostel.findUnique({
+          where: { id: data.hostelId },
+        });
+        if (!hostel) {
+          throw new Error('Specified hostel not found');
+        }
+      }
+    }
+
+    if (data.blockIds !== undefined && data.blockIds.length > 0) {
+      const blocks = await this.prisma.block.findMany({
+        where: { id: { in: data.blockIds } },
+      });
+      if (blocks.length !== data.blockIds.length) {
+        throw new Error('One or more specified blocks not found');
+      }
+    }
+
+    const updatedAnnouncement = await this.prisma.announcement.update({
+      where: { id: announcementId },
+      data: {
+        title: data.title,
+        content: data.content,
+        category: data.category,
+        priority: data.priority,
+        hostelId: data.hostelId,
+        blockIds: data.blockIds,
+        targetRoles: data.targetRoles,
+        expiresAt: data.expiresAt ? new Date(data.expiresAt) : undefined,
+      },
+      include: {
+        hostel: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    await this.invalidateAnnouncementsCache();
+
+    return updatedAnnouncement as AnnouncementWithRelations;
+  }
+
+  /**
+   * Delete an announcement
+   */
+  async deleteAnnouncement(
+    announcementId: string,
+    managementUserId: string
+  ): Promise<void> {
+    const managementUser = await this.prisma.user.findUnique({
+      where: { id: managementUserId, role: Role.MANAGEMENT },
+    });
+
+    if (!managementUser) {
+      throw new Error('Only management users can delete announcements');
+    }
+
+    const announcement = await this.prisma.announcement.findUnique({
+      where: { id: announcementId },
+    });
+
+    if (!announcement) {
+      throw new Error('Announcement not found');
+    }
+
+    await this.prisma.announcement.delete({
+      where: { id: announcementId },
+    });
+
+    await this.invalidateAnnouncementsCache();
+  }
+
   private async invalidateAnnouncementsCache(): Promise<void> {
     try {
 

@@ -1,14 +1,12 @@
 import { Request, Response } from 'express';
 import { announcementService } from './announcement.service';
-import { CreateAnnouncementInput, GetAnnouncementsInput, MarkAsReadInput } from './announcement.validation';
+import { CreateAnnouncementInput, GetAnnouncementsInput, MarkAsReadInput, UpdateAnnouncementInput } from './announcement.validation';
 import { AuthenticatedRequest } from '../../shared/types';
 import { logger } from '../../shared/services/logger.service';
-import { Role } from '@prisma/client';
 
 class AnnouncementController {
   async createAnnouncement(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-
       if (!req.user || req.user.role !== 'MANAGEMENT') {
         res.status(403).json({
           success: false,
@@ -20,15 +18,12 @@ class AnnouncementController {
         return;
       }
 
-
       const validatedData: CreateAnnouncementInput = req.body as CreateAnnouncementInput;
-
 
       const files = {
         images: Array.isArray(req.files) ? undefined : req.files?.images as Express.Multer.File[] | undefined,
         attachments: Array.isArray(req.files) ? undefined : req.files?.attachments as Express.Multer.File[] | undefined,
       };
-
 
       const announcement = await announcementService.createAnnouncement(
         validatedData,
@@ -111,13 +106,16 @@ class AnnouncementController {
         return;
       }
 
-
-      const filters: GetAnnouncementsInput = req.query as any;
-
+      const filters: GetAnnouncementsInput = {
+        page: parseInt(req.query.page as string) || 1,
+        limit: parseInt(req.query.limit as string) || 10,
+        category: req.query.category as any,
+        search: req.query.search as string,
+      };
 
       const result = await announcementService.getAnnouncements(
         req.user.id,
-        req.user.role as Role,
+        req.user.role as any,
         filters
       );
 
@@ -175,7 +173,6 @@ class AnnouncementController {
       }
 
       const announcementId = req.params.id as string;
-
 
       await announcementService.markAsRead(announcementId, req.user.id);
 
@@ -243,7 +240,6 @@ class AnnouncementController {
         return;
       }
 
-
       const unreadCount = await announcementService.getUnreadCount(req.user.id);
 
       res.status(200).json({
@@ -296,7 +292,7 @@ class AnnouncementController {
         return;
       }
 
-      const announcementId = req.params.id;
+      const announcementId = req.params.id as string;
       const announcement = await announcementService.getAnnouncementById(announcementId as string, req.user.id);
 
       res.status(200).json({
@@ -345,6 +341,147 @@ class AnnouncementController {
         error: {
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to get announcement',
+        },
+      });
+    }
+  }
+
+  async updateAnnouncement(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user || req.user.role !== 'MANAGEMENT') {
+        res.status(403).json({
+          success: false,
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only management users can update announcements',
+          },
+        });
+        return;
+      }
+
+      const announcementId = req.params.id as string;
+      const validatedData = req.body;
+
+      const announcement = await announcementService.updateAnnouncement(
+        announcementId,
+        validatedData,
+        req.user.id
+      );
+
+      res.status(200).json({
+        success: true,
+        data: announcement,
+        message: 'Announcement updated successfully',
+      });
+    } catch (error) {
+      logger.error({
+        message: 'Update announcement controller error',
+        error: error instanceof Error ? {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+        } : error,
+        userId: req.user?.id,
+        body: req.body,
+      });
+
+      if (error instanceof Error) {
+        if (error.message.includes('Only management users can update')) {
+          res.status(403).json({
+            success: false,
+            error: {
+              code: 'FORBIDDEN',
+              message: error.message,
+            },
+          });
+          return;
+        }
+
+        if (error.message.includes('not found')) {
+          res.status(404).json({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: error.message,
+            },
+          });
+          return;
+        }
+      }
+
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to update announcement',
+        },
+      });
+    }
+  }
+
+  async deleteAnnouncement(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user || req.user.role !== 'MANAGEMENT') {
+        res.status(403).json({
+          success: false,
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only management users can delete announcements',
+          },
+        });
+        return;
+      }
+
+      const announcementId = req.params.id as string;
+
+      await announcementService.deleteAnnouncement(announcementId, req.user.id);
+
+      res.status(200).json({
+        success: true,
+        data: null,
+        message: 'Announcement deleted successfully',
+      });
+    } catch (error) {
+      logger.error({
+        message: 'Delete announcement controller error',
+        error: error instanceof Error ? {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+        } : error,
+        userId: req.user?.id,
+        announcementId: req.params.id,
+      });
+
+      if (error instanceof Error) {
+        if (error.message.includes('Only management users can delete')) {
+          res.status(403).json({
+            success: false,
+            error: {
+              code: 'FORBIDDEN',
+              message: error.message,
+            },
+          });
+          return;
+        }
+
+        if (error.message.includes('not found')) {
+          res.status(404).json({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: error.message,
+            },
+          });
+          return;
+        }
+      }
+
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to delete announcement',
         },
       });
     }
