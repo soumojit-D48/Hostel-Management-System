@@ -1,14 +1,9 @@
 import { Router } from 'express';
-import { authenticate } from '../../shared/middleware/auth.middleware';
-import { authorize } from '../../shared/middleware/authorize.middleware';
-import { Role } from '@prisma/client';
 import { prisma } from '../../config/database';
 
 const router = Router();
 
-router.use(authenticate);
-
-// Get all hostels
+// Get all hostels - public for registration
 router.get('/', async (req, res) => {
   try {
     const hostels = await prisma.hostel.findMany({
@@ -36,14 +31,14 @@ router.get('/', async (req, res) => {
       success: false,
       error: {
         message: 'Failed to fetch hostels',
-        details: error.message
+        details: error instanceof Error ? error.message : 'Unknown error'
       }
     });
   }
 });
 
 // Get hostel by ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req, res): Promise<void> => {
   try {
     const { id } = req.params;
 
@@ -65,12 +60,13 @@ router.get('/:id', async (req, res) => {
     });
 
     if (!hostel) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: {
           message: 'Hostel not found'
         }
       });
+      return;
     }
 
     res.json({
@@ -83,14 +79,14 @@ router.get('/:id', async (req, res) => {
       success: false,
       error: {
         message: 'Failed to fetch hostel',
-        details: error.message
+        details: error instanceof Error ? error.message : 'Unknown error'
       }
     });
   }
 });
 
 // Get blocks for a specific hostel
-router.get('/:id/blocks', async (req, res) => {
+router.get('/:id/blocks', async (req, res): Promise<void> => {
   try {
     const { id } = req.params;
 
@@ -100,12 +96,13 @@ router.get('/:id/blocks', async (req, res) => {
     });
 
     if (!hostel) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: {
           message: 'Hostel not found'
         }
       });
+      return;
     }
 
     const blocks = await prisma.block.findMany({
@@ -133,7 +130,7 @@ router.get('/:id/blocks', async (req, res) => {
       success: false,
       error: {
         message: 'Failed to fetch blocks',
-        details: error.message
+        details: error instanceof Error ? error.message : 'Unknown error'
       }
     });
   }
