@@ -3,7 +3,7 @@ import { userController } from './user.controller';
 import { authenticate } from '../../shared/middleware/auth.middleware';
 import { authorize } from '../../shared/middleware/authorize.middleware';
 import { validateRequest } from '../../shared/middleware/validation.middleware';
-import { getStaffListSchema } from './user.validation';
+import { getStaffListSchema, updateProfileSchema } from './user.validation';
 import { Role } from '@prisma/client';
 
 const router = Router();
@@ -22,6 +22,25 @@ router.get(
     authorize(Role.MANAGEMENT) as any,
     validateRequest(getStaffListSchema, 'query' as any),
     userController.getStaffList as any
+);
+
+/**
+ * PATCH /api/users/profile
+ * Update current user profile
+ */
+router.patch(
+    '/profile',
+    validateRequest(updateProfileSchema),
+    userController.updateProfile as any
+);
+
+/**
+ * GET /api/users/profile
+ * Get current user profile
+ */
+router.get(
+    '/profile',
+    userController.getProfile as any
 );
 
 export default router;

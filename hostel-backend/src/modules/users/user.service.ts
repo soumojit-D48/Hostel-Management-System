@@ -1,5 +1,6 @@
 import { prisma } from '../../config/database';
 import { Role } from '@prisma/client';
+import { UpdateProfileInput } from './user.validation';
 
 interface GetStaffListParams {
     hostelId?: string;
@@ -49,7 +50,7 @@ class UserService {
             },
             orderBy: [
                 {
-                    role: 'desc', // STAFF comes before MANAGEMENT alphabetically, so desc puts MANAGEMENT first
+                    role: 'desc',
                 },
                 {
                     name: 'asc',
@@ -57,7 +58,6 @@ class UserService {
             ],
         });
 
-        // Transform the response to match frontend expectations
         const formattedStaff = staffMembers.map((staff) => ({
             id: staff.id,
             name: staff.name,
@@ -69,12 +69,114 @@ class UserService {
             assignedIssuesCount: staff._count.assignedIssues,
         }));
 
-        // If available filter is true, sort by assigned issues count (ascending)
         if (available) {
             formattedStaff.sort((a, b) => a.assignedIssuesCount - b.assignedIssuesCount);
         }
 
         return formattedStaff;
+    }
+
+    /**
+     * Update user profile
+     * @param userId - Current user ID
+     * @param data - Profile data to update
+     * @returns Updated user profile
+     */
+    async updateProfile(userId: string, data: UpdateProfileInput) {
+        const existingUser = await prisma.user.findUnique({
+            where: { id: userId },
+        });
+
+        if (!existingUser) {
+            throw new Error('User not found');
+        }
+
+        if (data.phone && data.phone !== existingUser.phone) {
+            const phoneExists = await prisma.user.findUnique({
+                where: { phone: data.phone },
+            });
+            if (phoneExists && phoneExists.id !== userId) {
+                throw new Error('Phone number already in use');
+            }
+        }
+
+        const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: {
+                name: data.name,
+                phone: data.phone,
+                emergencyContact: data.emergencyContact,
+                avatar: data.avatar,
+            },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                emergencyContact: true,
+                bloodGroup: true,
+                avatar: true,
+                role: true,
+                rollNumber: true,
+                roomNumber: true,
+                hostel: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
+                block: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
+            },
+        });
+
+        return updatedUser;
+    }
+
+    /**
+     * Get user profile
+     * @param userId - Current user ID
+     * @returns User profile
+     */
+    async getProfile(userId: string) {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                emergencyContact: true,
+                bloodGroup: true,
+                avatar: true,
+                role: true,
+                rollNumber: true,
+                roomNumber: true,
+                hostel: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
+                block: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
+                createdAt: true,
+            },
+        });
+
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        return user;
     }
 }
 
