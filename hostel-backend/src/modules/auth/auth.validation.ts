@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { Role } from '@prisma/client';
+
 
 export const registerSchema = z.object({
   email: z.string().email('Invalid email format').max(100, 'Email must be less than 100 characters'),
@@ -16,6 +18,7 @@ export const registerSchema = z.object({
   blockId: z.string().min(1, 'Block is required'),
   roomNumber: z.string().max(10, 'Room number must be less than 10 characters'),
   bloodGroup: z.string().optional(),
+  role: z.nativeEnum(Role).optional(),
 });
 
 export const loginSchema = z.object({

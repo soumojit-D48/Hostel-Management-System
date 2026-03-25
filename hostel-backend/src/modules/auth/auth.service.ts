@@ -17,7 +17,7 @@ class AuthService {
   }
 
   async register(data: RegisterInput) {
-    const { email, rollNumber, hostelId, blockId, password } = data;
+    const { email, rollNumber, hostelId, blockId, password, phone } = data;
 
     const existingUser = await prisma.user.findFirst({
       where: {
@@ -34,6 +34,16 @@ class AuthService {
       }
       if (existingUser.rollNumber === rollNumber) {
         throw new ValidationError('Roll number already exists');
+      }
+    }
+
+    // Check if phone already exists (if provided)
+    if (phone) {
+      const phoneExists = await prisma.user.findUnique({
+        where: { phone }
+      });
+      if (phoneExists) {
+        throw new ValidationError('Phone number already exists');
       }
     }
 
@@ -59,13 +69,19 @@ class AuthService {
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = nanoid(32);
 
+    // Auto-verify in development mode
+    const isDev = process.env.NODE_ENV !== 'production';
+
+    // Get role from data, default to STUDENT
+    const userRole = data.role || Role.STUDENT;
+
     const user = await prisma.user.create({
       data: {
         ...data,
         password: hashedPassword,
-        role: Role.STUDENT,
-        isVerified: false,
-        verificationToken,
+        role: userRole,
+        isVerified: isDev, // Auto-verify in development
+        verificationToken: isDev ? null : verificationToken,
         bloodGroup: data.bloodGroup || null,
       },
       select: {
