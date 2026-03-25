@@ -8,6 +8,26 @@ import { startNotificationArchivalJob } from './jobs/notification-archival.job';
 import { initSocketServer } from './shared/socket';
 import { startEmailWorker } from './jobs/workers/email.worker';
 
+process.on('uncaughtException', (error) => {
+  if (error.message.includes('Socket closed unexpectedly') || error.message.includes('Connection is closed')) {
+    logger.warn({ message: 'Redis connection issue (caught by uncaughtException handler)' });
+    return;
+  }
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  if (reason && typeof reason === 'object' && 'message' in reason) {
+    const err = reason as { message: string };
+    if (err.message.includes('Socket closed unexpectedly') || err.message.includes('Connection is closed')) {
+      logger.warn({ message: 'Redis connection issue (handled)' });
+      return;
+    }
+  }
+  console.error('Unhandled Rejection:', reason);
+});
+
 const startServer = async (): Promise<void> => {
   try {
     await connectDatabase();
