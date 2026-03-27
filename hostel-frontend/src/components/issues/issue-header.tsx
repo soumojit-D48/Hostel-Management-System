@@ -48,13 +48,14 @@ export function IssueHeader({
   onUpdateStatus,
   onDelete,
 }: IssueHeaderProps) {
-  const { user, isManagement, isStaffOrManagement } = useAuth();
+  const { user, isManagement, isStaff } = useAuth();
 
-  const canEdit = user?.id === issue.reportedBy.id || isManagement;
-  const canAssign = isStaffOrManagement;
+  const isCreator = user?.id === issue.reportedBy?.id;
+  const canEdit = isCreator; // Only creator can edit
+  const canAssign = isManagement; // Only management can assign
   const canUpdateStatus = 
-    (issue.assignedTo?.id === user?.id) || isManagement;
-  const canDelete = isManagement;
+    isManagement || (isStaff && issue.assignedTo?.id === user?.id);
+  const canDelete = isCreator || isManagement; // Creator OR management can delete
 
   return (
     <div className="space-y-4">
