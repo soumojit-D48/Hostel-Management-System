@@ -26,10 +26,14 @@ export default function IssuesPage() {
     ...filters,
   });
 
+  console.log('Issues page data:', data);
+  console.log('Issues page pagination:', data?.pagination);
+
   const issues = data?.data || [];
   const totalPages = data?.pagination?.totalPages || 1;
   const hasFilters = Object.values(filters).some(v => v !== undefined && v !== '');
 
+  console.log('Issues:', issues);
   return (
     <AppShell>
       <div className="space-y-6">
