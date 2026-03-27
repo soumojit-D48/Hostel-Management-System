@@ -28,7 +28,7 @@ export const loginSchema = z.object({
 });
 
 export const verifyEmailSchema = z.object({
-  token: z.string().uuid('Invalid verification token format'),
+  token: z.string().min(32, 'Invalid verification token').max(32, 'Invalid verification token'),
 });
 
 export const forgotPasswordSchema = z.object({
@@ -36,7 +36,7 @@ export const forgotPasswordSchema = z.object({
 });
 
 export const resetPasswordSchema = z.object({
-  token: z.string().uuid('Invalid reset token format'),
+  token: z.string().min(32, 'Invalid reset token').max(32, 'Invalid reset token'),
   newPassword: z.string()
     .min(8, 'Password must be at least 8 characters')
     .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
