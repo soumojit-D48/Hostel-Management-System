@@ -173,6 +173,121 @@ class IssueService {
     }
   }
 
+  async updateIssue(
+    issueId: string,
+    userId: string,
+    userRole: Role,
+    data: {
+      title?: string;
+      description?: string;
+      category?: IssueCategory;
+      priority?: IssuePriority;
+      visibility?: IssueVisibility;
+      location?: string;
+      roomNumber?: string;
+    }
+  ): Promise<Issue> {
+    try {
+      const issue = await prisma.issue.findUnique({
+        where: { id: issueId },
+        select: { reportedById: true, status: true }
+      });
+
+      if (!issue) {
+        throw new NotFoundError('Issue not found');
+      }
+
+      // Only creator can edit their issue
+      if (issue.reportedById !== userId) {
+        throw new ForbiddenError('You can only edit your own issues');
+      }
+
+      // Can't edit if already resolved or closed
+      if (issue.status === IssueStatus.RESOLVED || issue.status === IssueStatus.CLOSED) {
+        throw new ForbiddenError('Cannot edit resolved or closed issues');
+      }
+
+      const updatedIssue = await prisma.issue.update({
+        where: { id: issueId },
+        data: {
+          ...(data.title && { title: data.title }),
+          ...(data.description && { description: data.description }),
+          ...(data.category && { category: data.category }),
+          ...(data.priority && { priority: data.priority }),
+          ...(data.visibility && { visibility: data.visibility }),
+          ...(data.location !== undefined && { location: data.location }),
+          ...(data.roomNumber !== undefined && { roomNumber: data.roomNumber }),
+        }
+      });
+
+      logger.info({
+        message: 'Issue updated',
+        data: { issueId, userId }
+      });
+
+      return updatedIssue;
+    } catch (error) {
+      if (error instanceof NotFoundError || error instanceof ForbiddenError) {
+        throw error;
+      }
+      logger.error({
+        message: 'Failed to update issue',
+        error: error instanceof Error ? {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+        } : error,
+        data: { issueId, userId }
+      });
+      throw error;
+    }
+  }
+
+  async deleteIssue(
+    issueId: string,
+    userId: string,
+    userRole: Role
+  ): Promise<void> {
+    try {
+      const issue = await prisma.issue.findUnique({
+        where: { id: issueId },
+        select: { reportedById: true }
+      });
+
+      if (!issue) {
+        throw new NotFoundError('Issue not found');
+      }
+
+      // Only creator or management can delete
+      if (issue.reportedById !== userId && userRole !== Role.MANAGEMENT) {
+        throw new ForbiddenError('Only the creator or management can delete this issue');
+      }
+
+      await prisma.issue.delete({
+        where: { id: issueId }
+      });
+
+      logger.info({
+        message: 'Issue deleted',
+        data: { issueId, userId, userRole }
+      });
+    } catch (error) {
+      if (error instanceof NotFoundError || error instanceof ForbiddenError) {
+        throw error;
+      }
+      logger.error({
+        message: 'Failed to delete issue',
+        error: error instanceof Error ? {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+        } : error,
+        data: { issueId, userId }
+      });
+      throw error;
+    }
+  }
+
   async getIssues(
     userId: string,
     userRole: Role,
@@ -438,7 +553,12 @@ class IssueService {
             select: {
               id: true,
               title: true,
-              reportedById: true,
+              reportedBy: {
+                select: {
+                  id: true,
+                  name: true,
+                }
+              }
             }
           }
         }
@@ -893,6 +1013,7 @@ class IssueService {
 
   async findSimilarIssues(issueId: string): Promise<any[]> {
     try {
+      console.log('🔍 [SimilarIssues] Finding similar issues for ID:', issueId);
       
       const currentIssue = await prisma.issue.findUnique({
         where: { id: issueId },
@@ -911,8 +1032,27 @@ class IssueService {
         throw new NotFoundError('Issue not found');
       }
 
+      console.log('🔍 [SimilarIssues] Current Issue:', {
+        id: currentIssue.id,
+        title: currentIssue.title,
+        category: currentIssue.category,
+        hostelId: currentIssue.hostelId,
+        blockId: currentIssue.blockId,
+        status: currentIssue.status
+      });
+
+      console.log('🔍 [SimilarIssues] Search Query:', {
+        category: currentIssue.category,
+        hostelId: currentIssue.hostelId,
+        blockId: currentIssue.blockId,
+        status: [IssueStatus.REPORTED, IssueStatus.ASSIGNED],
+        isMerged: false,
+        dateRange: 'last 7 days'
+      });
+
       
       if (currentIssue.status !== IssueStatus.REPORTED && currentIssue.status !== IssueStatus.ASSIGNED) {
+        console.log('🔍 [SimilarIssues] Status not REPORTED or ASSIGNED, returning empty');
         return [];
       }
 
@@ -943,6 +1083,8 @@ class IssueService {
         take: 20 
       });
 
+      console.log('🔍 [SimilarIssues] Potential duplicates found:', potentialDuplicates.length);
+
       
       const issuesWithSimilarity = potentialDuplicates.map(issue => ({
         issueId: issue.id,
@@ -966,6 +1108,15 @@ class IssueService {
       
       const similarIssues = filterBySimilarity(issuesWithSimilarity, 0.7);
       const sortedIssues = sortBySimilarity(similarIssues);
+
+      console.log('🎯 [SimilarIssues] Found:', sortedIssues.length);
+      sortedIssues.forEach((issue: any, idx: number) => {
+        console.log(`🎯 [SimilarIssues] #${idx + 1}:`, {
+          id: issue.issueId,
+          title: issue.title,
+          similarityScore: issue.similarityScore
+        });
+      });
 
       return sortedIssues.slice(0, 10); 
     } catch (error) {

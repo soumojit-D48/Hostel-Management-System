@@ -71,6 +71,67 @@ class IssueController {
     }
   }
 
+  async updateIssue(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const issueId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      const userId = req.user?.id || '';
+      const userRole = req.user?.role as any;
+
+      const { title, description, category, priority, visibility, location, roomNumber } = req.body;
+
+      const updatedIssue = await issueService.updateIssue(
+        issueId,
+        userId,
+        userRole,
+        {
+          title,
+          description,
+          category,
+          priority,
+          visibility,
+          location,
+          roomNumber,
+        }
+      );
+
+      res.status(200).json(
+        successResponse(updatedIssue, 'Issue updated successfully')
+      );
+      return;
+    } catch (error: any) {
+      if (error instanceof ForbiddenError || error instanceof NotFoundError) {
+        res.status(error.statusCode).json(
+          successResponse(null, error.message)
+        );
+        return;
+      }
+      return next(error);
+    }
+  }
+
+  async deleteIssue(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const issueId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      const userId = req.user?.id || '';
+      const userRole = req.user?.role as any;
+
+      await issueService.deleteIssue(issueId, userId, userRole);
+
+      res.status(200).json(
+        successResponse(null, 'Issue deleted successfully')
+      );
+      return;
+    } catch (error: any) {
+      if (error instanceof ForbiddenError || error instanceof NotFoundError) {
+        res.status(error.statusCode).json(
+          successResponse(null, error.message)
+        );
+        return;
+      }
+      return next(error);
+    }
+  }
+
   async getIssues(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const validatedData: GetIssuesInput = req.query as any;

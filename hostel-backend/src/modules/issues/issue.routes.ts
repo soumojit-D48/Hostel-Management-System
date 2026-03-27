@@ -46,6 +46,16 @@ router.get(
 );
 
 router.patch(
+  '/:id',
+  issueController.updateIssue as any
+);
+
+router.delete(
+  '/:id',
+  issueController.deleteIssue as any
+);
+
+router.patch(
   '/:id/status',
   validateRequest(updateStatusSchema),
   issueController.updateIssueStatus as any
