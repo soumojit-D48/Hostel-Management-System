@@ -286,12 +286,6 @@ class CommentService {
       }
 
       
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-      if (existingComment.createdAt < fiveMinutesAgo) {
-        throw new Error('Comments can only be edited within 5 minutes of creation');
-      }
-
-      
       const updatedComment = await prisma.comment.update({
         where: { id: commentId },
         data: {
@@ -356,10 +350,16 @@ class CommentService {
         throw new Error('Comment not found');
       }
 
+      const currentUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true }
+      });
+
       
       const canDelete = 
         existingComment.userId === userId ||
-        existingComment.user?.role === Role.MANAGEMENT;
+        currentUser?.role === Role.MANAGEMENT ||
+        currentUser?.role === Role.STAFF;
 
       if (!canDelete) {
         throw new Error('Not authorized to delete this comment');

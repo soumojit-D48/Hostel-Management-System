@@ -123,7 +123,8 @@ class CommentController {
       }
 
       
-      const { page, limit } = validatedQuery;
+      const page = validatedQuery.page || 1;
+      const limit = validatedQuery.limit || 10;
 
       
       const result = await commentService.getComments(

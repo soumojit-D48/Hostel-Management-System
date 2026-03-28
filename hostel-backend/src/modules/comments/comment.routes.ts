@@ -38,14 +38,12 @@ router.get(
 router.patch(
   '/:id',
   validateRequest(updateCommentSchema),
-  validateRequest({ id: 'string' } as any, 'params' as any),
   commentController.updateComment as any
 );
 
 
 router.delete(
   '/:id',
-  validateRequest({ id: 'string' } as any, 'params' as any),
   commentController.deleteComment as any
 );
 
