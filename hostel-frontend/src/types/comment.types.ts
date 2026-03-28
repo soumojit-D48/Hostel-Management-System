@@ -8,6 +8,7 @@ export interface Comment {
     name: string;
     email: string;
     avatar?: string;
+    role?: string;
   };
   parentId?: string;
   replies?: Comment[];
@@ -16,7 +17,8 @@ export interface Comment {
 }
 
 export interface CreateCommentRequest {
-  issueId: string;
+  issueId?: string;
+  announcementId?: string;
   content: string;
   parentId?: string;
 }

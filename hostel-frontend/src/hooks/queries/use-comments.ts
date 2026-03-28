@@ -3,16 +3,17 @@ import { apiGet } from '@/lib/api-client';
 import { ApiResponse } from '@/types/api-response';
 import { Comment } from '@/types/comment.types';
 
-export function useComments(issueId: string) {
+export function useComments(resourceId: string, isAnnouncement: boolean = false) {
   return useQuery({
-    queryKey: ['comments', issueId],
+    queryKey: ['comments', isAnnouncement ? 'announcement' : 'issue', resourceId],
     queryFn: async () => {
-      const response = await apiGet<ApiResponse<Comment[]>>('/comments', {
-        issueId,
-      });
+      const params = isAnnouncement 
+        ? { announcementId: resourceId }
+        : { issueId: resourceId };
+      const response = await apiGet<ApiResponse<Comment[]>>('/comments', params);
       return response.data;
     },
-    enabled: !!issueId,
+    enabled: !!resourceId,
   });
 }
 

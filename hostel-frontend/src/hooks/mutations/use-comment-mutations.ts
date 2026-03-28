@@ -14,7 +14,10 @@ export function useCreateComment() {
       return response.data;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['comments', variables.issueId] });
+      const queryKey = variables.issueId 
+        ? ['comments', 'issue', variables.issueId]
+        : ['comments', 'announcement', variables.announcementId];
+      queryClient.invalidateQueries({ queryKey });
       toast.success('Comment added');
     },
     onError: (error: any) => {
