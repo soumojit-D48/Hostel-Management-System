@@ -174,7 +174,7 @@ class AnnouncementController {
 
       const announcementId = req.params.id as string;
 
-      await announcementService.markAsRead(announcementId, req.user.id);
+      await announcementService.markAsRead(announcementId, req.user.id, req.user.role);
 
       res.status(200).json({
         success: true,
@@ -293,7 +293,7 @@ class AnnouncementController {
       }
 
       const announcementId = req.params.id as string;
-      const announcement = await announcementService.getAnnouncementById(announcementId as string, req.user.id);
+      const announcement = await announcementService.getAnnouncementById(announcementId as string, req.user.id, req.user.role);
 
       res.status(200).json({
         success: true,

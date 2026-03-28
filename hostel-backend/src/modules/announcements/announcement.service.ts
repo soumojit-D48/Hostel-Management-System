@@ -255,34 +255,30 @@ class AnnouncementService {
 
 
       const now = new Date();
-      const where: any = {
+      let where: any = {
         publishAt: { lte: now },
         OR: [
           { expiresAt: null },
           { expiresAt: { gt: now } }
         ],
-        AND: [
-
-          {
-            OR: [
-              { hostelId: null },
-              { hostelId: user.hostelId },
-            ]
-          },
-          {
-            OR: [
-              { blockIds: { isEmpty: true } },
-              { blockIds: { has: user.blockId } },
-            ]
-          },
-          {
-            OR: [
-              { targetRoles: { isEmpty: true } },
-              { targetRoles: { has: user.role } },
-            ]
-          }
-        ]
       };
+
+      // Management sees all announcements
+      if (userRole !== Role.MANAGEMENT) {
+        const hostelFilter = user.hostelId
+          ? { OR: [{ hostelId: null }, { hostelId: user.hostelId }] }
+          : { OR: [{ hostelId: null }] };
+
+        const blockFilter = user.blockId
+          ? { OR: [{ blockIds: { isEmpty: true } }, { blockIds: { has: user.blockId } }] }
+          : { OR: [{ blockIds: { isEmpty: true } }] };
+
+        const roleFilter = user.role
+          ? { OR: [{ targetRoles: { isEmpty: true } }, { targetRoles: { has: user.role } }] }
+          : { OR: [{ targetRoles: { isEmpty: true } }] };
+
+        where.AND = [hostelFilter, blockFilter, roleFilter];
+      }
 
 
       if (category) {
@@ -387,7 +383,7 @@ class AnnouncementService {
     }
   }
 
-  async markAsRead(announcementId: string, userId: string): Promise<void> {
+  async markAsRead(announcementId: string, userId: string, userRole?: Role): Promise<void> {
     try {
 
       const announcement = await this.prisma.announcement.findUnique({
@@ -398,6 +394,26 @@ class AnnouncementService {
         throw new Error('Announcement not found');
       }
 
+      // Management can mark as read without access check
+      if (userRole === Role.MANAGEMENT) {
+        await this.prisma.announcementRead.upsert({
+          where: {
+            announcementId_userId: {
+              announcementId,
+              userId,
+            }
+          },
+          update: {
+            readAt: new Date(),
+          },
+          create: {
+            announcementId,
+            userId,
+            readAt: new Date(),
+          }
+        });
+        return;
+      }
 
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -413,10 +429,19 @@ class AnnouncementService {
       }
 
       const now = new Date();
-      const canAccess =
-        (announcement.hostelId === null || announcement.hostelId === user.hostelId) &&
-        (announcement.blockIds.length === 0 || announcement.blockIds.includes(user.blockId)) &&
-        (announcement.targetRoles.length === 0 || announcement.targetRoles.includes(user.role)) &&
+      const canAccessHostel = !user.hostelId 
+        ? announcement.hostelId === null 
+        : announcement.hostelId === null || announcement.hostelId === user.hostelId;
+      
+      const canAccessBlock = !user.blockId
+        ? announcement.blockIds.length === 0
+        : announcement.blockIds.length === 0 || announcement.blockIds.includes(user.blockId);
+      
+      const canAccessRole = !user.role
+        ? announcement.targetRoles.length === 0
+        : announcement.targetRoles.length === 0 || announcement.targetRoles.includes(user.role);
+
+      const canAccess = canAccessHostel && canAccessBlock && canAccessRole &&
         announcement.publishAt <= now &&
         (announcement.expiresAt === null || announcement.expiresAt > now);
 
@@ -477,32 +502,25 @@ class AnnouncementService {
 
 
       const now = new Date();
+      const hostelFilter = user.hostelId
+        ? { OR: [{ hostelId: null }, { hostelId: user.hostelId }] }
+        : { OR: [{ hostelId: null }] };
+
+      const blockFilter = user.blockId
+        ? { OR: [{ blockIds: { isEmpty: true } }, { blockIds: { has: user.blockId } }] }
+        : { OR: [{ blockIds: { isEmpty: true } }] };
+
+      const roleFilter = user.role
+        ? { OR: [{ targetRoles: { isEmpty: true } }, { targetRoles: { has: user.role } }] }
+        : { OR: [{ targetRoles: { isEmpty: true } }] };
+
       const where: any = {
         publishAt: { lte: now },
         OR: [
           { expiresAt: null },
           { expiresAt: { gt: now } }
         ],
-        AND: [
-          {
-            OR: [
-              { hostelId: null },
-              { hostelId: user.hostelId },
-            ]
-          },
-          {
-            OR: [
-              { blockIds: { isEmpty: true } },
-              { blockIds: { has: user.blockId } },
-            ]
-          },
-          {
-            OR: [
-              { targetRoles: { isEmpty: true } },
-              { targetRoles: { has: user.role } },
-            ]
-          }
-        ],
+        AND: [hostelFilter, blockFilter, roleFilter],
         readBy: {
           none: { userId }
         }
@@ -523,7 +541,7 @@ class AnnouncementService {
     }
   }
 
-  async getAnnouncementById(announcementId: string, userId: string): Promise<AnnouncementWithRelations> {
+  async getAnnouncementById(announcementId: string, userId: string, userRole?: Role): Promise<AnnouncementWithRelations> {
     try {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -564,11 +582,33 @@ class AnnouncementService {
         throw new Error('Announcement not found');
       }
 
+      // Management can access all announcements
+      if (userRole === Role.MANAGEMENT) {
+        return {
+          ...announcement,
+          isRead: announcement.readBy.length > 0,
+          createdBy: {
+            id: announcement.createdById,
+            name: 'Admin',
+            email: 'admin@hostel.com',
+          },
+        } as any;
+      }
+
       const now = new Date();
-      const canAccess =
-        (announcement.hostelId === null || announcement.hostelId === user.hostelId) &&
-        (announcement.blockIds.length === 0 || announcement.blockIds.includes(user.blockId || '')) &&
-        (announcement.targetRoles.length === 0 || announcement.targetRoles.includes(user.role)) &&
+      const canAccessHostel = !user.hostelId 
+        ? announcement.hostelId === null 
+        : announcement.hostelId === null || announcement.hostelId === user.hostelId;
+      
+      const canAccessBlock = !user.blockId
+        ? announcement.blockIds.length === 0
+        : announcement.blockIds.length === 0 || announcement.blockIds.includes(user.blockId);
+      
+      const canAccessRole = !user.role
+        ? announcement.targetRoles.length === 0
+        : announcement.targetRoles.length === 0 || announcement.targetRoles.includes(user.role);
+
+      const canAccess = canAccessHostel && canAccessBlock && canAccessRole &&
         announcement.publishAt <= now &&
         (announcement.expiresAt === null || announcement.expiresAt > now);
 

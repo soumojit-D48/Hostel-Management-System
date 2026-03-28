@@ -4,13 +4,16 @@ export const createAnnouncementSchema = z.object({
   title: z.string().min(1, 'Title is required').max(150, 'Title must be less than 150 characters'),
   content: z.string().min(1, 'Content is required').max(2000, 'Content must be less than 2000 characters'),
   category: z.enum(['CLEANING_SCHEDULE', 'PEST_CONTROL', 'MAINTENANCE_NOTICE', 'WATER_ELECTRICITY', 'GENERAL']),
-  priority: z.boolean().default(false),
+  priority: z.union([z.boolean(), z.string()]).optional().default(false),
   hostelId: z.string().optional(),
   blockIds: z.array(z.string()).optional(),
   targetRoles: z.array(z.enum(['STUDENT', 'STAFF', 'MANAGEMENT'])).optional(),
   publishAt: z.string().datetime().optional(),
   expiresAt: z.string().datetime().optional(),
-}).refine((data) => {
+}).transform((data) => ({
+  ...data,
+  priority: data.priority === true || String(data.priority) === 'true',
+})).refine((data) => {
   if (data.publishAt && data.expiresAt) {
     return new Date(data.expiresAt) > new Date(data.publishAt);
   }
@@ -24,7 +27,7 @@ export const updateAnnouncementSchema = z.object({
   title: z.string().min(1, 'Title is required').max(150, 'Title must be less than 150 characters').optional(),
   content: z.string().min(1, 'Content is required').max(2000, 'Content must be less than 2000 characters').optional(),
   category: z.enum(['CLEANING_SCHEDULE', 'PEST_CONTROL', 'MAINTENANCE_NOTICE', 'WATER_ELECTRICITY', 'GENERAL']).optional(),
-  priority: z.boolean().optional(),
+  priority: z.union([z.boolean(), z.string()]).optional(),
   hostelId: z.string().nullable().optional(),
   blockIds: z.array(z.string()).optional(),
   targetRoles: z.array(z.enum(['STUDENT', 'STAFF', 'MANAGEMENT'])).optional(),
