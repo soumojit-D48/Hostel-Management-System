@@ -22,14 +22,7 @@ const categoryColors = {
   WATER_ELECTRICITY: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400',
 };
 
-const priorityColors = {
-  LOW: 'badge-success',
-  MEDIUM: 'badge-warning',
-  HIGH: 'badge-error',
-};
-
 export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
-  const isHighPriority = announcement.priority === 'HIGH';
   const isUnread = !announcement.isRead;
 
   return (
@@ -37,7 +30,7 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
       <div className={cn(
         'card cursor-pointer transition-all duration-200',
         'hover:shadow-lg hover:-translate-y-1',
-        isHighPriority && 'border-l-4 border-error-600 dark:border-error-400',
+        announcement.priority && 'border-l-4 border-error-600 dark:border-error-400',
         isUnread && 'ring-2 ring-primary-200 dark:ring-primary-800'
       )}>
         {/* Header */}
@@ -45,11 +38,11 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
           <div className="flex-shrink-0">
             <div className={cn(
               'flex h-10 w-10 items-center justify-center rounded-lg',
-              isHighPriority 
+              announcement.priority 
                 ? 'bg-error-100 dark:bg-error-950' 
                 : 'bg-primary-100 dark:bg-primary-950'
             )}>
-              {isHighPriority ? (
+              {announcement.priority ? (
                 <Pin className="h-5 w-5 text-error-600 dark:text-error-400" />
               ) : (
                 <Megaphone className="h-5 w-5 text-primary-600 dark:text-primary-400" />
@@ -72,8 +65,8 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
           <span className={cn('badge text-xs', categoryColors[announcement.category])}>
             {announcement.category.replace('_', ' ')}
           </span>
-          <span className={cn('badge text-xs', priorityColors[announcement.priority])}>
-            {announcement.priority}
+          <span className={cn('badge text-xs', announcement.priority ? 'badge-error' : 'badge-success')}>
+            {announcement.priority ? 'HIGH' : 'Normal'}
           </span>
           {isUnread && (
             <span className="badge badge-info text-xs">NEW</span>

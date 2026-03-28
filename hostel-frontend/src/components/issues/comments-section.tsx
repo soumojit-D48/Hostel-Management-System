@@ -2,28 +2,34 @@
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { MessageSquare, Send, Edit, Trash2, X } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useComments } from '@/hooks/queries/use-comments';
 import { 
   useCreateComment, 
-  useUpdateComment, 
-  useDeleteComment 
 } from '@/hooks/mutations/use-comment-mutations';
+import { apiPatch, apiDelete } from '@/lib/api-client';
+import { ApiResponse } from '@/types/api-response';
+import { Comment, UpdateCommentRequest } from '@/types/comment.types';
 import { createCommentSchema, type CreateCommentFormData } from '@/schemas';
-import { Comment } from '@/types/comment.types';
 import { Button } from '@/components/ui/button';
 import { formatRelativeTime, getInitials } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface CommentsSectionProps {
-  issueId: string;
+  issueId?: string;
+  announcementId?: string;
 }
 
-export function CommentsSection({ issueId }: CommentsSectionProps) {
-  const { user } = useAuth();
-  const { data: comments, isLoading } = useComments(issueId);
+export function CommentsSection({ issueId, announcementId }: CommentsSectionProps) {
+  const { user, isManagement } = useAuth();
+  const resourceId = issueId || announcementId || '';
+  const isAnnouncement = !!announcementId;
+  
+  const { data: comments, isLoading } = useComments(resourceId, isAnnouncement);
   const createComment = useCreateComment();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
@@ -37,20 +43,16 @@ export function CommentsSection({ issueId }: CommentsSectionProps) {
     resolver: zodResolver(createCommentSchema),
     defaultValues: {
       content: '',
-      issueId,
     },
   });
 
   const onSubmit = async (data: CreateCommentFormData) => {
-    try {
-      await createComment.mutateAsync({
-        issueId,
-        content: data.content,
-      });
-      reset();
-    } catch (error) {
-      // Error handled by mutation
-    }
+    const payload = issueId 
+      ? { issueId, content: data.content }
+      : { announcementId: announcementId!, content: data.content };
+    
+    await createComment.mutateAsync(payload);
+    reset();
   };
 
   return (
@@ -116,8 +118,10 @@ export function CommentsSection({ issueId }: CommentsSectionProps) {
             <CommentItem
               key={comment.id}
               comment={comment}
-              issueId={issueId}
+              resourceId={resourceId}
+              isAnnouncement={isAnnouncement}
               currentUserId={user?.id}
+              isManagement={isManagement}
               editingId={editingId}
               editContent={editContent}
               onEdit={(id, content) => {
@@ -150,8 +154,10 @@ export function CommentsSection({ issueId }: CommentsSectionProps) {
 
 interface CommentItemProps {
   comment: Comment;
-  issueId: string;
+  resourceId: string;
+  isAnnouncement: boolean;
   currentUserId?: string;
+  isManagement?: boolean;
   editingId: string | null;
   editContent: string;
   onEdit: (id: string, content: string) => void;
@@ -161,24 +167,61 @@ interface CommentItemProps {
 
 function CommentItem({
   comment,
-  issueId,
+  resourceId,
+  isAnnouncement,
   currentUserId,
+  isManagement,
   editingId,
   editContent,
   onEdit,
   onCancelEdit,
   onSaveEdit,
 }: CommentItemProps) {
-  const updateComment = useUpdateComment(comment.id, issueId);
-  const deleteComment = useDeleteComment(comment.id, issueId);
+  const queryClient = useQueryClient();
+  
+  const updateMutation = useMutation({
+    mutationFn: async (data: UpdateCommentRequest) => {
+      const response = await apiPatch<ApiResponse<Comment>>(`/comments/${comment.id}`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      const qk = isAnnouncement 
+        ? ['comments', 'announcement', resourceId]
+        : ['comments', 'issue', resourceId];
+      queryClient.invalidateQueries({ queryKey: qk });
+      toast.success('Comment updated');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update comment');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiDelete<ApiResponse<void>>(`/comments/${comment.id}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      const qk = isAnnouncement 
+        ? ['comments', 'announcement', resourceId]
+        : ['comments', 'issue', resourceId];
+      queryClient.invalidateQueries({ queryKey: qk });
+      toast.success('Comment deleted');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to delete comment');
+    },
+  });
   const [localEditContent, setLocalEditContent] = useState(comment.content);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const isOwner = currentUserId === comment.userId;
+  const isAdmin = comment.user?.role === 'MANAGEMENT';
   const isEditing = editingId === comment.id;
 
   const handleSave = async () => {
     try {
-      await updateComment.mutateAsync({ content: localEditContent });
+      await updateMutation.mutateAsync({ content: localEditContent });
       onSaveEdit(comment.id, localEditContent);
     } catch (error) {
       // Error handled by mutation
@@ -186,20 +229,24 @@ function CommentItem({
   };
 
   const handleDelete = async () => {
-    if (confirm('Are you sure you want to delete this comment?')) {
-      try {
-        await deleteComment.mutateAsync();
-      } catch (error) {
-        // Error handled by mutation
-      }
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = async () => {
+    setShowDeleteDialog(false);
+    try {
+      await deleteMutation.mutateAsync();
+    } catch (error) {
+      // Error handled by mutation
     }
   };
 
   return (
-    <div className="flex gap-3 rounded-lg bg-neutral-50 p-4 dark:bg-neutral-800">
+    <>
+    <div className={`flex gap-3 rounded-lg p-4 ${isAdmin ? 'bg-primary-50 border-2 border-primary-200 dark:bg-primary-950/30 dark:border-primary-800' : 'bg-neutral-50 dark:bg-neutral-800'}`}>
       {/* Avatar */}
-      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-950">
-        <span className="text-sm font-medium text-primary-600 dark:text-primary-400">
+      <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${isAdmin ? 'bg-primary-500' : 'bg-primary-100 dark:bg-primary-950'}`}>
+        <span className={`text-sm font-medium ${isAdmin ? 'text-white' : 'text-primary-600 dark:text-primary-400'}`}>
           {getInitials(comment.user.name)}
         </span>
       </div>
@@ -208,24 +255,30 @@ function CommentItem({
       <div className="flex-1">
         <div className="mb-1 flex items-center justify-between">
           <div>
-            <span className="font-medium text-neutral-900 dark:text-neutral-50">
+            <span className={`font-medium ${isAdmin ? 'text-primary-700 dark:text-primary-300' : 'text-neutral-900 dark:text-neutral-50'}`}>
               {comment.user.name}
+              {isAdmin && <span className="ml-2 text-xs bg-primary-200 text-primary-800 px-2 py-0.5 rounded-full dark:bg-primary-800 dark:text-primary-200">{comment?.user?.role}</span>}
             </span>
             <span className="ml-2 text-xs text-neutral-500 dark:text-neutral-400">
               {formatRelativeTime(comment.createdAt)}
+              {comment.createdAt !== comment.updatedAt && (
+                <span className="ml-1 italic text-neutral-400">(Edited)</span>
+              )}
             </span>
           </div>
-          {isOwner && !isEditing && (
+          {(isOwner || isManagement) && !isEditing && (
             <div className="flex gap-1">
-              <button
-                onClick={() => {
-                  setLocalEditContent(comment.content);
-                  onEdit(comment.id, comment.content);
-                }}
-                className="rounded p-1 text-neutral-600 hover:bg-neutral-200 dark:text-neutral-400 dark:hover:bg-neutral-700"
-              >
-                <Edit className="h-4 w-4" />
-              </button>
+              {isOwner && (
+                <button
+                  onClick={() => {
+                    setLocalEditContent(comment.content);
+                    onEdit(comment.id, comment.content);
+                  }}
+                  className="rounded p-1 text-neutral-600 hover:bg-neutral-200 dark:text-neutral-400 dark:hover:bg-neutral-700"
+                >
+                  <Edit className="h-4 w-4" />
+                </button>
+              )}
               <button
                 onClick={handleDelete}
                 className="rounded p-1 text-error-600 hover:bg-error-50 dark:text-error-400 dark:hover:bg-error-950"
@@ -252,9 +305,9 @@ function CommentItem({
               <Button
                 size="sm"
                 onClick={handleSave}
-                disabled={updateComment.isPending}
+                disabled={updateMutation.isPending}
               >
-                {updateComment.isPending ? 'Saving...' : 'Save'}
+                {updateMutation.isPending ? 'Saving...' : 'Save'}
               </Button>
               <Button
                 size="sm"
@@ -275,5 +328,36 @@ function CommentItem({
         )}
       </div>
     </div>
+
+    {showDeleteDialog && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-neutral-900">
+          <h3 className="mb-2 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+            Delete Comment
+          </h3>
+          <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
+            Are you sure you want to delete this comment? This action cannot be undone.
+          </p>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleteMutation.isPending}
+              className="flex-1"
+            >
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
 }
