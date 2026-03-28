@@ -3,15 +3,19 @@ import { apiGet } from '@/lib/api-client';
 import { ApiResponse } from '@/types/api-response';
 import { ReactionCounts } from '@/types/reaction.types';
 
-export function useReactionCounts(issueId: string) {
+export function useReactionCounts(issueId: string, resourceType: 'issue' | 'announcement' = 'issue') {
   return useQuery({
-    queryKey: ['reactions', 'counts', issueId],
+    queryKey: ['reactions', 'counts', resourceType, issueId],
     queryFn: async () => {
-      const response = await apiGet<ApiResponse<ReactionCounts>>(
+      const queryParams = resourceType === 'issue'
+        ? { issueId }
+        : { announcementId: issueId };
+
+      const response = await apiGet<ApiResponse<any>>(
         '/reactions/counts',
-        { issueId }
+        queryParams
       );
-      return response.data;
+      return response.data?.counts || { helpful: 0, urgent: 0, resolved: 0, watching: 0, userReactions: [] };
     },
     enabled: !!issueId,
   });
@@ -37,7 +41,7 @@ export function useUserReactions(params: UserReactionsParams) {
         '/reactions/user-reactions',
         queryParams
       );
-      return response.data;
+      return response.data?.reactions || [];
     },
     enabled: !!params.resourceId,
   });
@@ -69,7 +73,7 @@ export function useResourceReactions(params: ResourceReactionsParams) {
         '/reactions/resource',
         queryParams
       );
-      return response.data;
+      return response.data || { reactions: [], counts: {} };
     },
     enabled: !!params.resourceId,
   });

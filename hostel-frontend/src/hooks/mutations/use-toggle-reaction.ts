@@ -3,16 +3,21 @@ import { apiPost, apiDelete } from '@/lib/api-client';
 import { ApiResponse } from '@/types/api-response';
 import { Reaction, ToggleReactionRequest } from '@/types/reaction.types';
 
-export function useToggleReaction(resourceId: string) {
+export function useToggleReaction(resourceId: string, resourceType: 'issue' | 'announcement' = 'issue') {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: ToggleReactionRequest) => {
-      const response = await apiPost<ApiResponse<Reaction>>('/reactions', data);
+      const payload = resourceType === 'issue'
+        ? { issueId: resourceId, type: data.type }
+        : { announcementId: resourceId, type: data.type };
+      
+      const response = await apiPost<ApiResponse<Reaction>>('/reactions', payload);
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reactions', 'counts', resourceId] });
+      queryClient.invalidateQueries({ queryKey: ['reactions', 'counts'] });
+      queryClient.invalidateQueries({ queryKey: ['reactions', 'user-reactions'] });
     },
   });
 }
