@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, User, Download, MapPin, Users } from 'lucide-react';
+import { ArrowLeft, Calendar, User, Download, MapPin, Users, Edit, Trash2 } from 'lucide-react';
 import { useAnnouncement } from '@/hooks/queries/use-announcements';
-import { useMarkAnnouncementRead } from '@/hooks/mutations/use-announcement-mutations';
+import { useMarkAnnouncementRead, useDeleteAnnouncement } from '@/hooks/mutations/use-announcement-mutations';
+import { useAuth } from '@/hooks/use-auth';
 import { AppShell } from '@/components/layout';
 import { IssueImagesGallery } from '@/components/issues/issue-images-gallery';
 import { CommentsSection } from '@/components/issues/comments-section';
@@ -26,18 +27,30 @@ const categoryColors = {
   WATER_ELECTRICITY: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400',
 };
 
-const priorityColors = {
-  LOW: 'badge-success',
-  MEDIUM: 'badge-warning',
-  HIGH: 'badge-error',
-};
-
 export default function AnnouncementDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const announcementId = params.id as string;
+  const { user, isManagement } = useAuth();
+
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { data: announcement, isLoading } = useAnnouncement(announcementId);
   const markAsRead = useMarkAnnouncementRead(announcementId);
+  const deleteAnnouncement = useDeleteAnnouncement();
+
+  const isCreator = user?.id === announcement?.createdBy?.id;
+  const canEdit = isCreator || isManagement;
+  const canDelete = isCreator || isManagement;
+
+  const handleDelete = async () => {
+    try {
+      await deleteAnnouncement.mutateAsync(announcementId);
+      router.push('/announcements');
+    } catch (error) {
+      // Error handled by mutation
+    }
+  };
 
   // Auto mark as read when viewing
   useEffect(() => {
@@ -82,13 +95,35 @@ export default function AnnouncementDetailPage() {
   return (
     <AppShell>
       <div className="space-y-6">
-        {/* Back Button */}
-        <Link href="/announcements">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Announcements
-          </Button>
-        </Link>
+        {/* Back Button & Actions */}
+        <div className="flex items-center justify-between">
+          <Link href="/announcements">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Announcements
+            </Button>
+          </Link>
+          <div className="flex gap-2">
+            {canEdit && (
+              <Link href={`/announcements/${announcementId}/edit`}>
+                <Button variant="outline" size="sm">
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </Button>
+              </Link>
+            )}
+            {canDelete && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+            )}
+          </div>
+        </div>
 
         {/* Main Content */}
         <div className="grid gap-6 lg:grid-cols-3">
@@ -105,8 +140,8 @@ export default function AnnouncementDetailPage() {
                 <span className={cn('badge', categoryColors[announcement.category])}>
                   {announcement.category.replace('_', ' ')}
                 </span>
-                <span className={cn('badge', priorityColors[announcement.priority])}>
-                  {announcement.priority}
+                <span className={cn('badge', announcement.priority ? 'badge-error' : 'badge-success')}>
+                  {announcement.priority ? 'HIGH PRIORITY' : 'Normal'}
                 </span>
                 {!announcement.isRead && (
                   <span className="badge badge-info">NEW</span>
@@ -117,7 +152,7 @@ export default function AnnouncementDetailPage() {
               <div className="flex flex-wrap gap-4 text-sm text-neutral-600 dark:text-neutral-400">
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4" />
-                  <span>{announcement.createdBy.name}</span>
+                  <span>{announcement.createdBy?.name || 'Admin'}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
@@ -188,11 +223,11 @@ export default function AnnouncementDetailPage() {
               <h3 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
                 Reactions
               </h3>
-              <ReactionsBar issueId={announcementId} />
+              <ReactionsBar issueId={announcementId} resourceType="announcement" />
             </div>
 
             {/* Comments */}
-            <CommentsSection issueId={announcementId} />
+            <CommentsSection announcementId={announcementId} />
           </div>
 
           {/* Right Column - Sidebar (1/3) */}
@@ -262,10 +297,10 @@ export default function AnnouncementDetailPage() {
                 </div>
                 <div>
                   <p className="font-medium text-neutral-900 dark:text-neutral-50">
-                    {announcement.createdBy.name}
+                    {announcement.createdBy?.name || 'Admin'}
                   </p>
                   <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                    {announcement.createdBy.email}
+                    {announcement.createdBy?.email || 'admin@hostel.com'}
                   </p>
                 </div>
               </div>
@@ -273,6 +308,40 @@ export default function AnnouncementDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteDialog && (
+        <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowDeleteDialog(false)} />
+          <div className="modal-content relative z-10 w-full max-w-md">
+            <div className="rounded-lg bg-white p-6 shadow-xl dark:bg-neutral-900">
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                Delete Announcement
+              </h3>
+              <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                Are you sure you want to delete this announcement? This action cannot be undone.
+              </p>
+              <div className="mt-4 flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDeleteDialog(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={deleteAnnouncement.isPending}
+                  className="flex-1"
+                >
+                  {deleteAnnouncement.isPending ? 'Deleting...' : 'Delete'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

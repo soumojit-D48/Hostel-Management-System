@@ -125,7 +125,7 @@ export default function CreateAnnouncementPage() {
       const { priority, hostelId, blockIds, ...rest } = data;
       await createAnnouncement.mutateAsync({
         ...rest,
-        priority: priority ? 'HIGH' : 'MEDIUM',
+        priority: priority || false, // Send as boolean
         hostelId: hostelId || undefined,
         blockIds: blockIds && blockIds.length > 0 ? blockIds : undefined,
         images,
