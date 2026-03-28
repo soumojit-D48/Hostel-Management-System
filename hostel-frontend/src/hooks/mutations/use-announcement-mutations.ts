@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiPost, apiUpload } from '@/lib/api-client';
+import { apiPost, apiPatch, apiDelete, apiUpload } from '@/lib/api-client';
 import { ApiResponse } from '@/types/api-response';
 import { Announcement, CreateAnnouncementRequest } from '@/types/announcement.types';
 import { toast } from 'sonner';
@@ -14,7 +14,7 @@ export function useCreateAnnouncement() {
       formData.append('title', data.title);
       formData.append('content', data.content);
       formData.append('category', data.category);
-      formData.append('priority', data.priority);
+      formData.append('priority', String(Boolean(data.priority)));
       
       if (data.hostelId) {
         formData.append('hostelId', data.hostelId);
@@ -65,6 +65,50 @@ export function useMarkAnnouncementRead(announcementId: string) {
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
       queryClient.invalidateQueries({ queryKey: ['announcements', announcementId] });
       queryClient.invalidateQueries({ queryKey: ['announcements', 'unread-count'] });
+    },
+  });
+}
+
+interface UpdateAnnouncementRequest {
+  title?: string;
+  content?: string;
+  category?: string;
+  priority?: string;
+  hostelId?: string;
+  blockIds?: string[];
+  targetRoles?: string[];
+}
+
+export function useUpdateAnnouncement(announcementId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: UpdateAnnouncementRequest) => {
+      const response = await apiPatch<ApiResponse<Announcement>>(
+        `/announcements/${announcementId}`,
+        data
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['announcements'] });
+      queryClient.invalidateQueries({ queryKey: ['announcements', announcementId] });
+    },
+  });
+}
+
+export function useDeleteAnnouncement() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (announcementId: string) => {
+      const response = await apiDelete<ApiResponse<void>>(
+        `/announcements/${announcementId}`
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['announcements'] });
     },
   });
 }

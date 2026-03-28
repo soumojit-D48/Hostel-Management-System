@@ -14,11 +14,11 @@ export function useAnnouncements(params: UseAnnouncementsParams = {}) {
   return useQuery({
     queryKey: ['announcements', params],
     queryFn: async () => {
-      const response = await apiGet<ApiResponse<PaginatedResponse<Announcement>>>(
+      const response = await apiGet<PaginatedResponse<Announcement>>(
         '/announcements',
         params
       );
-      return response.data;
+      return response;
     },
   });
 }
