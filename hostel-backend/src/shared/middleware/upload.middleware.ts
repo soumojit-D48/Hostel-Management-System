@@ -102,4 +102,5 @@ export const announcementUpload = upload.fields([
 
 export const lostFoundUpload = upload.fields([
   { name: 'images', maxCount: 3 },
+  { name: 'foundImage', maxCount: 1 },
 ]);

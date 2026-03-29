@@ -28,6 +28,9 @@ export const initSocketServer = async (httpServer: import('http').Server) => {
             message: 'Redis adapter not available, using in-memory adapter for Socket.io',
             error: error instanceof Error ? { name: error.name, message: error.message } : error,
         });
+        io.adapter((nsp) => {
+            return nsp;
+        });
     }
 
     io.use((socket, next) => {
@@ -40,38 +43,45 @@ export const initSocketServer = async (httpServer: import('http').Server) => {
     });
 
     io.on('connection', (socket) => {
-        const userId = socket.handshake.query.userId as string | undefined;
-        const hostelId = socket.handshake.query.hostelId as string | undefined;
+        logger.info({
+            message: 'Client connected',
+            data: { socketId: socket.id, userId: socket.data.userId },
+        });
 
-        if (userId) {
-            socket.join(`user:${userId}`);
-        }
-        if (hostelId) {
-            socket.join(`hostel:${hostelId}`);
-        }
-        socket.join('public');
+        socket.on('disconnect', (reason) => {
+            logger.info({
+                message: 'Client disconnected',
+                data: { socketId: socket.id, reason },
+            });
+        });
 
-        socket.on('disconnect', () => { });
+        socket.on('join_hostel', (hostelId: string) => {
+            socket.join(`hostel_${hostelId}`);
+            logger.info({ message: `Socket ${socket.id} joined hostel_${hostelId}` });
+        });
+
+        socket.on('leave_hostel', (hostelId: string) => {
+            socket.leave(`hostel_${hostelId}`);
+            logger.info({ message: `Socket ${socket.id} left hostel_${hostelId}` });
+        });
     });
 
     return io;
 };
 
-export const getSocketServer = () => io;
+export const getIO = (): Server | null => io;
 
-export const emitToUser = (userId: string, event: string, payload: any) => {
+export const emitToUser = (userId: string, event: string, data: any) => {
     if (!io) return;
-    io.to(`user:${userId}`).emit(event, payload);
+    io.to(`user_${userId}`).emit(event, data);
 };
 
-export const emitToHostel = (hostelId: string, event: string, payload: any) => {
+export const emitToHostel = (hostelId: string, event: string, data: any) => {
     if (!io) return;
-    io.to(`hostel:${hostelId}`).emit(event, payload);
+    io.to(`hostel_${hostelId}`).emit(event, data);
 };
 
-export const emitToAll = (event: string, payload: any) => {
+export const emitToAll = (event: string, data: any) => {
     if (!io) return;
-    io.to('public').emit(event, payload);
+    io.emit(event, data);
 };
-
-

@@ -28,12 +28,12 @@ class EmailService {
       <body>
           <div class="container">
               <div class="header">
-                  <h1>Smart Hostel Management</h1>
+                  <h1>HostelEase</h1>
                   <p>Email Verification Required</p>
               </div>
               <div class="content">
                   <h2>Hello ${userName},</h2>
-                  <p>Thank you for registering with Smart Hostel Management System.</p>
+                  <p>Thank you for registering with HostelEase.</p>
                   <p>Please click the button below to verify your email address and activate your account:</p>
                   <div style="text-align: center;">
                       <a href="${verificationUrl}" class="button">Verify Email</a>
@@ -44,7 +44,7 @@ class EmailService {
               </div>
               <div class="footer">
                   <p>If you didn't request this verification, please ignore this email.</p>
-                  <p>&copy; 2026 Smart Hostel Management System</p>
+                  <p>&copy; 2026 HostelEase. All rights reserved.</p>
               </div>
           </div>
       </body>

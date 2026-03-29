@@ -45,7 +45,7 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use('/api', limiter);
+// app.use('/api', limiter);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -78,12 +78,12 @@ app.get('/api/v1', (req, res) => {
   res.status(200).json({
     success: true,
     data: {
-      name: 'Smart Hostel Management API',
+      name: 'HostelEase API',
       version: 'v1',
-      description: 'Backend API for Smart Hostel Issue Tracking System',
+      description: 'Backend API for HostelEase - Easy Hostel Management',
       status: 'operational',
     },
-    message: 'Welcome to Smart Hostel Management API',
+    message: 'Welcome to HostelEase API',
   });
 });
 

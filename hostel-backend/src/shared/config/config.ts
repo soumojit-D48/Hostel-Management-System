@@ -10,7 +10,7 @@ export const config = {
   DATABASE_URL: process.env.DATABASE_URL || '',
   DATABASE_URL_POOLED: process.env.DATABASE_URL_POOLED || '',
 
-  REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
+  REDIS_URL: process.env.REDIS_URL || '',
 
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || '',
   CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || '',
