@@ -11,31 +11,31 @@ import { IssueTrendsChart } from '@/components/analytics/issue-trends-chart';
 import { StaffPerformanceChart } from '@/components/analytics/staff-performance-chart';
 import { HostelComparisonChart } from '@/components/analytics/hostel-comparison-chart';
 import { BarChart3, TrendingUp, Users, Building2 } from 'lucide-react';
-import { toast } from 'sonner';
 
 export default function AnalyticsPage() {
   const router = useRouter();
-  const { isManagement } = useAuth();
-  const { data: analytics } = useDashboardAnalytics();
-
-  // Redirect if not management
-  useEffect(() => {
-    if (!isManagement) {
-      toast.error('Access denied', {
-        description: 'Only management can access analytics',
-      });
-      router.push('/dashboard');
-    }
-  }, [isManagement, router]);
-
-  if (!isManagement) {
-    return null;
-  }
+  const { isManagement, user } = useAuth();
+  const { data: analytics, isLoading } = useDashboardAnalytics();
 
   const totalIssues = analytics?.totalIssues || 0;
   const resolutionRate = analytics?.resolutionRate || 0;
   const avgResponseTime = analytics?.avgResponseTimeHours || 0;
   const avgResolutionTime = analytics?.avgResolutionTimeHours || 0;
+
+  if (isLoading) {
+    return (
+      <AppShell>
+        <div className="space-y-6 animate-pulse">
+          <div className="h-32 bg-neutral-200 dark:bg-neutral-800 rounded-2xl"></div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-28 bg-neutral-200 dark:bg-neutral-800 rounded-xl"></div>
+            ))}
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -80,81 +80,60 @@ export default function AnalyticsPage() {
 
         {/* Charts Grid */}
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* Category Breakdown */}
-          <div className="card">
-            <h2 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-              Issues by Category
-            </h2>
-            <CategoryBreakdownChart />
-          </div>
-
           {/* Issue Trends */}
           <div className="card">
-            <h2 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+            <h3 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
               Issue Trends
-            </h2>
+            </h3>
             <IssueTrendsChart />
           </div>
 
-          {/* Staff Performance */}
+          {/* Category Breakdown */}
           <div className="card">
-            <h2 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-              Staff Performance
-            </h2>
-            <StaffPerformanceChart />
-          </div>
-
-          {/* Hostel Comparison */}
-          <div className="card">
-            <h2 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-              Hostel Comparison
-            </h2>
-            <HostelComparisonChart />
+            <h3 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+              Issues by Category
+            </h3>
+            <CategoryBreakdownChart />
           </div>
         </div>
 
-        {/* Additional Metrics */}
-        {analytics && (
+        {/* Staff Performance - Management Only */}
+        {isManagement && (
           <div className="card">
-            <h2 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-              Detailed Metrics
-            </h2>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-lg bg-neutral-50 p-4 dark:bg-neutral-800">
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                  New Issues Today
-                </p>
-                <p className="mt-1 text-2xl font-bold text-neutral-900 dark:text-neutral-50">
-                  {analytics.newIssuesToday}
-                </p>
-              </div>
+            <h3 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+              Staff Performance
+            </h3>
+            <StaffPerformanceChart />
+          </div>
+        )}
 
-              <div className="rounded-lg bg-neutral-50 p-4 dark:bg-neutral-800">
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                  Pending Assignments
-                </p>
-                <p className="mt-1 text-2xl font-bold text-neutral-900 dark:text-neutral-50">
-                  {analytics.pendingAssignments}
-                </p>
-              </div>
+        {/* Hostel Comparison - Management Only */}
+        {isManagement && (
+          <div className="card">
+            <h3 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+              Hostel Comparison
+            </h3>
+            <HostelComparisonChart />
+          </div>
+        )}
 
-              <div className="rounded-lg bg-neutral-50 p-4 dark:bg-neutral-800">
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                  Status Distribution
-                </p>
-                <div className="mt-2 space-y-1">
-                  {analytics.statusCounts && Object.entries(analytics.statusCounts).map(([status, count]) => (
-                    <div key={status} className="flex justify-between text-xs">
-                      <span className="text-neutral-600 dark:text-neutral-400">
-                        {status.replace('_', ' ')}
-                      </span>
-                      <span className="font-medium text-neutral-900 dark:text-neutral-50">
-                        {count}
-                      </span>
-                    </div>
-                  ))}
+        {/* Status Breakdown */}
+        {analytics?.statusCounts && (
+          <div className="card">
+            <h3 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+              Issue Status Overview
+            </h3>
+            <div className="grid gap-4 md:grid-cols-5">
+              {Object.entries(analytics.statusCounts).map(([status, count]) => (
+                <div key={status} className="text-center p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800">
+                  <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-50">
+                    {count}
+                  </p>
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                    {status.replace('_', ' ')}
+                  </p>
                 </div>
-              </div>
+              ))}
             </div>
           </div>
         )}

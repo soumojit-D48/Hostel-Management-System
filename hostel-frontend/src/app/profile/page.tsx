@@ -1,11 +1,33 @@
 'use client';
 
-import { useState } from 'react';
-import { ProtectedRoute } from '@/components/auth/protected-route';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { useProfile, useUpdateProfile } from '@/hooks/queries/use-profile';
+import { AppShell } from '@/components/layout';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
+import { 
+  User, 
+  Mail, 
+  Phone, 
+  AlertCircle, 
+  Home, 
+  Building, 
+  DoorOpen, 
+  Calendar, 
+  Shield,
+  Edit3,
+  Save,
+  X,
+  UserCog
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-function ProfileContent() {
+function ProfilePageContent() {
   const { user, updateUser } = useAuth();
+  const { data: profileData, isLoading: isLoadingProfile } = useProfile();
+  const updateProfile = useUpdateProfile();
+  
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -13,78 +35,168 @@ function ProfileContent() {
     emergencyContact: user?.emergencyContact || '',
   });
 
+  useEffect(() => {
+    if (profileData) {
+      setFormData({
+        name: profileData.name || '',
+        phone: profileData.phone || '',
+        emergencyContact: profileData.emergencyContact || '',
+      });
+    }
+  }, [profileData]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSave = async () => {
-    // TODO: Call update profile API
-    console.log('Saving profile:', formData);
-    setIsEditing(false);
+    try {
+      await updateProfile.mutateAsync(formData);
+      if (updateUser) {
+        updateUser({ ...user!, ...formData });
+      }
+      toast.success('Profile updated successfully');
+      setIsEditing(false);
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to update profile');
+    }
   };
 
-  if (!user) return null;
+  const handleCancel = () => {
+    setIsEditing(false);
+    setFormData({
+      name: profileData?.name || user?.name || '',
+      phone: profileData?.phone || user?.phone || '',
+      emergencyContact: profileData?.emergencyContact || user?.emergencyContact || '',
+    });
+  };
+
+  if (isLoadingProfile) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  const currentUser = profileData || user;
+
+  if (!currentUser) return null;
+
+  const getRoleBadge = () => {
+    const roleColors = {
+      STUDENT: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+      STAFF: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
+      MANAGEMENT: 'bg-warning-100 text-warning-700 dark:bg-warning-900 dark:text-warning-300',
+    };
+    const roleLabels = {
+      STUDENT: 'Student',
+      STAFF: 'Staff',
+      MANAGEMENT: 'Management',
+    };
+    return (
+      <span className={cn("px-3 py-1 rounded-full text-xs font-medium", roleColors[currentUser.role])}>
+        {roleLabels[currentUser.role]}
+      </span>
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <h1 className="text-2xl font-bold text-neutral-900">Profile</h1>
-        </div>
-      </div>
-
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow p-6 space-y-6">
-          {/* Avatar */}
-          <div className="flex items-center gap-6">
-            <div className="w-24 h-24 bg-primary-100 rounded-full flex items-center justify-center">
-              <span className="text-primary-700 text-3xl font-bold">
-                {user.name.charAt(0).toUpperCase()}
-              </span>
+    <AppShell>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg shadow-primary-500/20">
+              <User className="h-7 w-7 text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-neutral-900">{user.name}</h2>
-              <p className="text-sm text-neutral-600 mt-1">
-                {user.role === 'STUDENT' ? 'Student' : 'Management'}
+              <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-50">
+                My Profile
+              </h1>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                Manage your personal information
               </p>
             </div>
           </div>
+          {!isEditing && (
+            <Button onClick={() => setIsEditing(true)} className="gap-2">
+              <Edit3 className="h-4 w-4" />
+              Edit Profile
+            </Button>
+          )}
+        </div>
 
-          {/* Profile Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Email (non-editable) */}
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">
-                Email
+        {/* Profile Card */}
+        <div className="card">
+          {/* Avatar & Basic Info */}
+          <div className="flex flex-col sm:flex-row items-start gap-6 pb-6 border-b border-neutral-200 dark:border-neutral-700">
+            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center shadow-lg shadow-primary-500/20">
+              <span className="text-white text-4xl font-bold">
+                {currentUser.name?.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-50">
+                  {currentUser.name}
+                </h2>
+                {getRoleBadge()}
+              </div>
+              <div className="flex flex-wrap gap-4 text-sm text-neutral-600 dark:text-neutral-400">
+                <div className="flex items-center gap-1">
+                  <Mail className="h-4 w-4" />
+                  {currentUser.email}
+                </div>
+                {currentUser.rollNumber && (
+                  <div className="flex items-center gap-1">
+                    <UserCog className="h-4 w-4" />
+                    {currentUser.rollNumber}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Form Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
+            {/* Email (Read Only) */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                <Mail className="h-4 w-4 text-neutral-500" />
+                Email Address
               </label>
               <input
                 type="email"
-                value={user.email}
+                value={currentUser.email}
                 disabled
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md bg-neutral-50 text-neutral-500"
+                className="w-full px-4 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-lg bg-neutral-50 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400"
               />
             </div>
 
-            {/* Roll Number (non-editable for students) */}
-            {user.rollNumber && (
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+            {/* Roll Number (Read Only - if exists) */}
+            {currentUser.rollNumber && (
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                  <UserCog className="h-4 w-4 text-neutral-500" />
                   Roll Number
                 </label>
                 <input
                   type="text"
-                  value={user.rollNumber}
+                  value={currentUser.rollNumber}
                   disabled
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-md bg-neutral-50 text-neutral-500"
+                  className="w-full px-4 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-lg bg-neutral-50 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400"
                 />
               </div>
             )}
 
-            {/* Name (editable) */}
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">
+            {/* Name */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                <User className="h-4 w-4 text-neutral-500" />
                 Full Name
               </label>
               <input
@@ -93,13 +205,20 @@ function ProfileContent() {
                 value={formData.name}
                 onChange={handleChange}
                 disabled={!isEditing}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md disabled:bg-neutral-50 disabled:text-neutral-500"
+                className={cn(
+                  "w-full px-4 py-2.5 border rounded-lg transition-colors",
+                  isEditing 
+                    ? "border-primary-300 dark:border-primary-700 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20" 
+                    : "border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800",
+                  "disabled:text-neutral-500 dark:disabled:text-neutral-400"
+                )}
               />
             </div>
 
-            {/* Phone (editable) */}
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">
+            {/* Phone */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                <Phone className="h-4 w-4 text-neutral-500" />
                 Phone Number
               </label>
               <input
@@ -108,13 +227,21 @@ function ProfileContent() {
                 value={formData.phone}
                 onChange={handleChange}
                 disabled={!isEditing}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md disabled:bg-neutral-50 disabled:text-neutral-500"
+                placeholder="Enter phone number"
+                className={cn(
+                  "w-full px-4 py-2.5 border rounded-lg transition-colors",
+                  isEditing 
+                    ? "border-primary-300 dark:border-primary-700 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20" 
+                    : "border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800",
+                  "disabled:text-neutral-500 dark:disabled:text-neutral-400"
+                )}
               />
             </div>
 
-            {/* Emergency Contact (editable) */}
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">
+            {/* Emergency Contact */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                <AlertCircle className="h-4 w-4 text-neutral-500" />
                 Emergency Contact
               </label>
               <input
@@ -123,126 +250,129 @@ function ProfileContent() {
                 value={formData.emergencyContact}
                 onChange={handleChange}
                 disabled={!isEditing}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md disabled:bg-neutral-50 disabled:text-neutral-500"
+                placeholder="Emergency contact number"
+                className={cn(
+                  "w-full px-4 py-2.5 border rounded-lg transition-colors",
+                  isEditing 
+                    ? "border-primary-300 dark:border-primary-700 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20" 
+                    : "border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800",
+                  "disabled:text-neutral-500 dark:disabled:text-neutral-400"
+                )}
               />
             </div>
 
-            {/* Hostel (non-editable) */}
-            {user.hostel && (
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+            {/* Hostel (Read Only) */}
+            {currentUser.hostel && (
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                  <Home className="h-4 w-4 text-neutral-500" />
                   Hostel
                 </label>
                 <input
                   type="text"
-                  value={user.hostel.name}
+                  value={currentUser.hostel.name}
                   disabled
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-md bg-neutral-50 text-neutral-500"
+                  className="w-full px-4 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-lg bg-neutral-50 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400"
                 />
               </div>
             )}
 
-            {/* Block (non-editable) */}
-            {user.block && (
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+            {/* Block (Read Only) */}
+            {currentUser.block && (
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                  <Building className="h-4 w-4 text-neutral-500" />
                   Block
                 </label>
                 <input
                   type="text"
-                  value={user.block.name}
+                  value={currentUser.block.name}
                   disabled
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-md bg-neutral-50 text-neutral-500"
+                  className="w-full px-4 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-lg bg-neutral-50 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400"
                 />
               </div>
             )}
 
-            {/* Room Number (non-editable) */}
-            {user.roomNumber && (
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+            {/* Room Number (Read Only) */}
+            {currentUser.roomNumber && (
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                  <DoorOpen className="h-4 w-4 text-neutral-500" />
                   Room Number
                 </label>
                 <input
                   type="text"
-                  value={user.roomNumber}
+                  value={currentUser.roomNumber}
                   disabled
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-md bg-neutral-50 text-neutral-500"
+                  className="w-full px-4 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-lg bg-neutral-50 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400"
                 />
               </div>
             )}
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-4 pt-4 border-t border-neutral-200">
-            {isEditing ? (
-              <>
-                <button
-                  onClick={() => {
-                    setIsEditing(false);
-                    setFormData({
-                      name: user.name || '',
-                      phone: user.phone || '',
-                      emergencyContact: user.emergencyContact || '',
-                    });
-                  }}
-                  className="flex-1 px-4 py-2 border border-neutral-300 rounded-md hover:bg-neutral-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
-                >
-                  Save Changes
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
+          {/* Action Buttons */}
+          {isEditing && (
+            <div className="flex gap-3 pt-6 mt-6 border-t border-neutral-200 dark:border-neutral-700">
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+                disabled={updateProfile.isPending}
+                className="gap-2"
               >
-                Edit Profile
-              </button>
-            )}
-          </div>
+                <X className="h-4 w-4" />
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={updateProfile.isPending}
+                className="gap-2"
+              >
+                {updateProfile.isPending ? (
+                  <>Saving...</>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </div>
 
-        {/* Account Info */}
-        <div className="mt-6 bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-neutral-900 mb-4">
-            Account Information
-          </h3>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-neutral-600">Account Status:</span>
-              <span className={`font-medium ${user.isVerified ? 'text-success-700' : 'text-warning-700'}`}>
-                {user.isVerified ? 'Verified' : 'Not Verified'}
+        {/* Account Info Card */}
+        <div className="card">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-100 dark:bg-neutral-800">
+              <Shield className="h-5 w-5 text-neutral-600 dark:text-neutral-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+              Account Information
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50 dark:bg-neutral-800">
+              <span className="text-sm text-neutral-600 dark:text-neutral-400">Account Status</span>
+              <span className="px-2 py-1 text-xs font-medium bg-success-100 text-success-700 dark:bg-success-900 dark:text-success-300 rounded-full">
+                Active
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-neutral-600">Last Login:</span>
-              <span className="text-neutral-900">
-                {user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never'}
+            <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50 dark:bg-neutral-800">
+              <span className="text-sm text-neutral-600 dark:text-neutral-400 flex items-center gap-1">
+                <Calendar className="h-4 w-4" />
+                Member Since
               </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-neutral-600">Account Created:</span>
-              <span className="text-neutral-900">
-                {new Date(user.createdAt).toLocaleDateString()}
+              <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                {currentUser.createdAt ? new Date(currentUser.createdAt).toLocaleDateString() : 'N/A'}
               </span>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 
 export default function ProfilePage() {
-  return (
-    <ProtectedRoute>
-      <ProfileContent />
-    </ProtectedRoute>
-  );
+  return <ProfilePageContent />;
 }
