@@ -64,13 +64,13 @@ export type CreateLostFoundFormData = z.infer<typeof createLostFoundSchema>;
 export const createClaimSchema = z.object({
     verificationDetails: z
         .string()
-        .min(10, 'Please provide detailed verification information')
+        .min(20, 'Please provide detailed verification information (min 20 characters)')
         .max(500, 'Verification details must be less than 500 characters'),
     proofImage: z
         .instanceof(File)
-        .refine((file) => file.size <= MAX_IMAGE_SIZE, 'Image must be less than 5MB')
+        .refine((file) => !file || file.size <= MAX_IMAGE_SIZE, 'Image must be less than 5MB')
         .refine(
-            (file) => ACCEPTED_IMAGE_TYPES.includes(file.type),
+            (file) => !file || ACCEPTED_IMAGE_TYPES.includes(file.type),
             'Only .jpg, .jpeg, .png and .webp formats are supported'
         )
         .optional(),

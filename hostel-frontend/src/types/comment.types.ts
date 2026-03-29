@@ -1,7 +1,9 @@
 export interface Comment {
   id: string;
   content: string;
-  issueId: string;
+  issueId?: string;
+  announcementId?: string;
+  lostFoundId?: string;
   userId: string;
   user: {
     id: string;
@@ -19,6 +21,7 @@ export interface Comment {
 export interface CreateCommentRequest {
   issueId?: string;
   announcementId?: string;
+  lostFoundId?: string;
   content: string;
   parentId?: string;
 }

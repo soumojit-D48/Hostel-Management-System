@@ -10,7 +10,9 @@ export interface ApiResponse<T = any> {
 }
 
 export interface PaginatedResponse<T> {
+  success: boolean;
   data: T[];
+  message?: string;
   pagination: {
     page: number;
     limit: number;

@@ -23,6 +23,19 @@ export interface LostFoundItem {
     name: string;
     email: string;
   };
+  claimedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  foundBy?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  foundMessage?: string;
+  foundLocation?: string;
+  foundImage?: string;
   hostel?: {
     id: string;
     name: string;
