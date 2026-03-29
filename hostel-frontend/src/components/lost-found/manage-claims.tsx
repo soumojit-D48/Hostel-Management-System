@@ -1,8 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { LostFoundItem, LostFoundClaim } from '@/types/lost-found.types';
 import { useUpdateClaim } from '@/hooks/mutations/use-lost-found-mutations';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { formatRelativeTime, getInitials } from '@/lib/utils';
 import { Check, X, User, FileText, Image } from 'lucide-react';
 import { toast } from 'sonner';
@@ -35,12 +37,12 @@ export function ManageClaims({ item }: ManageClaimsProps) {
 
 function ClaimItem({ claim }: { claim: LostFoundClaim }) {
     const updateClaim = useUpdateClaim(claim.id);
+    const [showApproveDialog, setShowApproveDialog] = useState(false);
+    const [showRejectDialog, setShowRejectDialog] = useState(false);
+    const [rejectRemarks, setRejectRemarks] = useState('');
 
     const handleApprove = async () => {
-        if (!confirm('Are you sure you want to approve this claim? The claimant will be notified.')) {
-            return;
-        }
-
+        setShowApproveDialog(false);
         try {
             await updateClaim.mutateAsync({ action: 'APPROVE' });
             toast.success('Claim approved. Contact information has been shared with both parties.');
@@ -50,20 +52,20 @@ function ClaimItem({ claim }: { claim: LostFoundClaim }) {
     };
 
     const handleReject = async () => {
-        const remarks = prompt('Optional: Add a reason for rejection');
-        if (remarks === null) return; // User cancelled
-
+        setShowRejectDialog(false);
         try {
             await updateClaim.mutateAsync({
                 action: 'REJECT',
-                remarks: remarks || undefined,
+                remarks: rejectRemarks || undefined,
             });
+            setRejectRemarks('');
         } catch (error) {
             // Error handled by mutation
         }
     };
 
     return (
+        <>
         <div className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-700">
             {/* Claimant Info */}
             <div className="mb-3 flex items-start gap-3">
@@ -118,7 +120,7 @@ function ClaimItem({ claim }: { claim: LostFoundClaim }) {
             {/* Actions */}
             <div className="flex gap-2">
                 <Button
-                    onClick={handleApprove}
+                    onClick={() => setShowApproveDialog(true)}
                     disabled={updateClaim.isPending}
                     className="flex-1 bg-success-600 text-white hover:bg-success-700"
                     size="sm"
@@ -133,7 +135,7 @@ function ClaimItem({ claim }: { claim: LostFoundClaim }) {
                     )}
                 </Button>
                 <Button
-                    onClick={handleReject}
+                    onClick={() => setShowRejectDialog(true)}
                     disabled={updateClaim.isPending}
                     variant="destructive"
                     size="sm"
@@ -144,5 +146,80 @@ function ClaimItem({ claim }: { claim: LostFoundClaim }) {
                 </Button>
             </div>
         </div>
+
+        {/* Approve Dialog */}
+        {showApproveDialog && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                <div className="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-neutral-900">
+                    <h3 className="mb-2 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                        Approve Claim
+                    </h3>
+                    <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
+                        Are you sure you want to approve this claim? The claimant will be notified and contact information will be shared with both parties.
+                    </p>
+                    <div className="flex gap-3">
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowApproveDialog(false)}
+                            className="flex-1"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleApprove}
+                            disabled={updateClaim.isPending}
+                            className="flex-1 bg-success-600 text-white hover:bg-success-700"
+                        >
+                            {updateClaim.isPending ? 'Approving...' : 'Approve'}
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Reject Dialog */}
+        {showRejectDialog && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                <div className="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-neutral-900">
+                    <h3 className="mb-2 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                        Reject Claim
+                    </h3>
+                    <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
+                        Are you sure you want to reject this claim?
+                    </p>
+                    <div className="mb-4">
+                        <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                            Reason (optional)
+                        </label>
+                        <Input
+                            value={rejectRemarks}
+                            onChange={(e) => setRejectRemarks(e.target.value)}
+                            placeholder="Add a reason for rejection..."
+                        />
+                    </div>
+                    <div className="flex gap-3">
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setShowRejectDialog(false);
+                                setRejectRemarks('');
+                            }}
+                            className="flex-1"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleReject}
+                            disabled={updateClaim.isPending}
+                            variant="destructive"
+                            className="flex-1"
+                        >
+                            {updateClaim.isPending ? 'Rejecting...' : 'Reject'}
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     );
 }
