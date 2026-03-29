@@ -17,10 +17,10 @@ export function Navbar() {
         {/* Left: Logo */}
         <Link href="/dashboard" className="flex items-center gap-3 group">
           <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary-600 to-secondary-600 flex-center transition-transform group-hover:scale-105">
-            <span className="text-lg font-bold text-white">SH</span>
+            <span className="text-lg font-bold text-white">HE</span>
           </div>
           <span className="text-xl font-bold text-neutral-900 dark:text-neutral-50">
-            Smart Hostel
+            HostelEase
           </span>
         </Link>
 
@@ -111,7 +111,7 @@ export function Navbar() {
 //           <div className="flex">
 //             <div className="flex-shrink-0 flex items-center">
 //               <Link href="/dashboard" className="text-xl font-bold text-primary-600">
-//                 Smart Hostel
+//                 HostelEase
 //               </Link>
 //             </div>
 //             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
