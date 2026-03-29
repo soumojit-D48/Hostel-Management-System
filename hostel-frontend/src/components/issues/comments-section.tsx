@@ -22,14 +22,16 @@ import { toast } from 'sonner';
 interface CommentsSectionProps {
   issueId?: string;
   announcementId?: string;
+  lostFoundId?: string;
 }
 
-export function CommentsSection({ issueId, announcementId }: CommentsSectionProps) {
+export function CommentsSection({ issueId, announcementId, lostFoundId }: CommentsSectionProps) {
   const { user, isManagement } = useAuth();
-  const resourceId = issueId || announcementId || '';
+  const resourceId = issueId || announcementId || lostFoundId || '';
   const isAnnouncement = !!announcementId;
+  const isLostFound = !!lostFoundId;
   
-  const { data: comments, isLoading } = useComments(resourceId, isAnnouncement);
+  const { data: comments, isLoading } = useComments(resourceId, isAnnouncement, isLostFound);
   const createComment = useCreateComment();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
@@ -49,7 +51,9 @@ export function CommentsSection({ issueId, announcementId }: CommentsSectionProp
   const onSubmit = async (data: CreateCommentFormData) => {
     const payload = issueId 
       ? { issueId, content: data.content }
-      : { announcementId: announcementId!, content: data.content };
+      : announcementId 
+        ? { announcementId: announcementId, content: data.content }
+        : { lostFoundId: lostFoundId!, content: data.content };
     
     await createComment.mutateAsync(payload);
     reset();
@@ -120,6 +124,7 @@ export function CommentsSection({ issueId, announcementId }: CommentsSectionProp
               comment={comment}
               resourceId={resourceId}
               isAnnouncement={isAnnouncement}
+              isLostFound={isLostFound}
               currentUserId={user?.id}
               isManagement={isManagement}
               editingId={editingId}
@@ -156,6 +161,7 @@ interface CommentItemProps {
   comment: Comment;
   resourceId: string;
   isAnnouncement: boolean;
+  isLostFound?: boolean;
   currentUserId?: string;
   isManagement?: boolean;
   editingId: string | null;
@@ -169,6 +175,7 @@ function CommentItem({
   comment,
   resourceId,
   isAnnouncement,
+  isLostFound,
   currentUserId,
   isManagement,
   editingId,
@@ -179,16 +186,19 @@ function CommentItem({
 }: CommentItemProps) {
   const queryClient = useQueryClient();
   
+  const getQueryKey = () => {
+    if (isAnnouncement) return ['comments', 'announcement', resourceId];
+    if (isLostFound) return ['comments', 'lostFound', resourceId];
+    return ['comments', 'issue', resourceId];
+  };
+  
   const updateMutation = useMutation({
     mutationFn: async (data: UpdateCommentRequest) => {
       const response = await apiPatch<ApiResponse<Comment>>(`/comments/${comment.id}`, data);
       return response.data;
     },
     onSuccess: () => {
-      const qk = isAnnouncement 
-        ? ['comments', 'announcement', resourceId]
-        : ['comments', 'issue', resourceId];
-      queryClient.invalidateQueries({ queryKey: qk });
+      queryClient.invalidateQueries({ queryKey: getQueryKey() });
       toast.success('Comment updated');
     },
     onError: (error: any) => {
@@ -202,10 +212,7 @@ function CommentItem({
       return response.data;
     },
     onSuccess: () => {
-      const qk = isAnnouncement 
-        ? ['comments', 'announcement', resourceId]
-        : ['comments', 'issue', resourceId];
-      queryClient.invalidateQueries({ queryKey: qk });
+      queryClient.invalidateQueries({ queryKey: getQueryKey() });
       toast.success('Comment deleted');
     },
     onError: (error: any) => {

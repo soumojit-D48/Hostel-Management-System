@@ -86,11 +86,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     actualTheme: mounted ? getActualTheme() : 'light',
   };
 
-  // Prevent flash of unstyled content
-  if (!mounted) {
-    return <>{children}</>;
-  }
-
+  // Always provide context to prevent errors during SSR/hydration
   return (
     <ThemeContext.Provider value={value}>
       {children}
@@ -101,7 +97,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 export function useTheme() {
   const context = useContext(ThemeContext);
   if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider');
+    // Return default values if not wrapped by provider
+    return {
+      theme: 'light' as Theme,
+      setTheme: () => {},
+      actualTheme: 'light' as const,
+    };
   }
   return context;
 }
