@@ -44,7 +44,7 @@ export default function EditAnnouncementPage() {
       title: '',
       content: '',
       category: 'GENERAL',
-      priority: 'MEDIUM',
+      priority: false,
       targetRoles: ['STUDENT'],
     },
   });
@@ -68,7 +68,7 @@ export default function EditAnnouncementPage() {
         title: data.title,
         content: data.content,
         category: data.category,
-        priority: data.priority || false,
+        priority: String(data.priority || false),
         targetRoles: data.targetRoles,
       });
 

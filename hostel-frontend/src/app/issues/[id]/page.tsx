@@ -168,7 +168,7 @@ export default function IssueDetailPage() {
                 </div>
                 {similarIssues.length > 0 ? (
                   <div className="space-y-3">
-                    {similarIssues.slice(0, 3).map((similarIssue) => (
+                    {similarIssues.slice(0, 3).map((similarIssue: any) => (
                       <IssueCard 
                         key={similarIssue.issueId} 
                         issue={{

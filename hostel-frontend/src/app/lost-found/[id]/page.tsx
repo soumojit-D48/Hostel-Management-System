@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, MapPin, User, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, User, CheckCircle, MessageSquare } from 'lucide-react';
 import { useLostFoundItem } from '@/hooks/queries/use-lost-found';
 import { useAuth } from '@/hooks/use-auth';
 import { useMarkItemReturned } from '@/hooks/mutations/use-lost-found-mutations';
@@ -11,6 +11,8 @@ import { AppShell } from '@/components/layout';
 import { IssueImagesGallery } from '@/components/issues/issue-images-gallery';
 import { ClaimItemDialog } from '@/components/lost-found/claim-item-dialog';
 import { ManageClaims } from '@/components/lost-found/manage-claims';
+import { ReportFoundDialog } from '@/components/lost-found/report-found-dialog';
+import { CommentsSection } from '@/components/issues/comments-section';
 import { Button } from '@/components/ui/button';
 import { formatRelativeTime } from '@/lib/utils';
 import { cn } from '@/lib/utils';
@@ -39,15 +41,18 @@ export default function LostFoundDetailPage() {
   const { data: item, isLoading } = useLostFoundItem(itemId);
   const markReturned = useMarkItemReturned(itemId);
   const [showClaimDialog, setShowClaimDialog] = useState(false);
+  const [showFoundDialog, setShowFoundDialog] = useState(false);
 
   const canClaim = item && item.status === 'FOUND' && item.reportedBy.id !== user?.id;
+  const canReportFound = item && item.status === 'LOST' && item.reportedBy.id !== user?.id;
+  const isOwner = item && item.reportedBy.id === user?.id;
+  const hasFoundReport = item && item.foundBy && item.status === 'LOST';
   const canManageClaims = isStaffOrManagement;
   const canMarkReturned = item && item.status === 'CLAIMED' && isStaffOrManagement;
+  const [showReturnDialog, setShowReturnDialog] = useState(false);
 
   const handleMarkReturned = async () => {
-    if (!confirm('Mark this item as returned? This action cannot be undone.')) {
-      return;
-    }
+    setShowReturnDialog(false);
     try {
       await markReturned.mutateAsync();
     } catch (error) {
@@ -110,6 +115,11 @@ export default function LostFoundDetailPage() {
                 <span className={cn('badge', categoryColors[item.category])}>
                   {item.category}
                 </span>
+                {item.status === 'RETURNED' && item.claimedBy && (
+                  <span className="badge bg-success-100 text-success-800 dark:bg-success-900 dark:text-success-200">
+                    Claimed by: {item.claimedBy.name}
+                  </span>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-4 text-sm text-neutral-600 dark:text-neutral-400">
@@ -154,10 +164,65 @@ export default function LostFoundDetailPage() {
               </Button>
             )}
 
+            {/* I Found It Button */}
+            {canReportFound && (
+              <Button
+                onClick={() => setShowFoundDialog(true)}
+                className="w-full bg-success-600 text-white hover:bg-success-700"
+              >
+                I Found This Item
+              </Button>
+            )}
+
+            {/* Found Report Info for Owner */}
+            {isOwner && hasFoundReport && item.foundMessage && (
+              <div className="card border-2 border-success-500">
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-success-100 dark:bg-success-900">
+                    <span className="text-lg">🎉</span>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">
+                      Good News! Someone found your item
+                    </h3>
+                    <p className="text-sm text-neutral-500">
+                      Found by: {item.foundBy?.name}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="rounded-lg bg-neutral-50 p-3 dark:bg-neutral-800">
+                  <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                    Location: {item.foundLocation}
+                  </p>
+                  <p className="mt-2 text-neutral-600 dark:text-neutral-400">
+                    {item.foundMessage}
+                  </p>
+                </div>
+
+                {item.foundImage && (
+                  <div className="mt-3">
+                    <img
+                      src={item.foundImage}
+                      alt="Found item"
+                      className="rounded-lg"
+                    />
+                  </div>
+                )}
+
+                <Button
+                  onClick={() => setShowClaimDialog(true)}
+                  className="mt-4 btn-primary w-full"
+                >
+                  Yes, This Is My Item!
+                  </Button>
+              </div>
+            )}
+
             {/* Mark as Returned */}
             {canMarkReturned && (
               <Button
-                onClick={handleMarkReturned}
+                onClick={() => setShowReturnDialog(true)}
                 disabled={markReturned.isPending}
                 className="w-full bg-success-600 text-white hover:bg-success-700"
               >
@@ -176,7 +241,7 @@ export default function LostFoundDetailPage() {
             )}
           </div>
 
-          {/* Sidebar */}
+          {/* Sidebar - 3rd column */}
           <div className="space-y-6">
             {/* Reporter Info */}
             <div className="card">
@@ -229,6 +294,16 @@ export default function LostFoundDetailPage() {
             )}
           </div>
         </div>
+
+        {/* Comments Section */}
+        <div className="mt-8">
+          <div className="flex items-center gap-2 mb-4">
+          <MessageSquare className="h-5 w-5 text-neutral-600 dark:text-neutral-400" />
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+            Comments
+          </h2>
+        </div>
+        <CommentsSection lostFoundId={itemId} />
       </div>
 
       {/* Claim Dialog */}
@@ -239,6 +314,46 @@ export default function LostFoundDetailPage() {
         onClose={() => setShowClaimDialog(false)}
         onSuccess={() => setShowClaimDialog(false)}
       />
+
+      {/* Mark Returned Dialog */}
+      {showReturnDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-neutral-900">
+            <h3 className="mb-2 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+              Mark as Returned
+            </h3>
+            <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
+              Are you sure you want to mark this item as returned? This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowReturnDialog(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleMarkReturned}
+                disabled={markReturned.isPending}
+                className="flex-1 bg-success-600 text-white hover:bg-success-700"
+              >
+                {markReturned.isPending ? 'Marking...' : 'Mark as Returned'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report Found Dialog */}
+      <ReportFoundDialog
+        itemId={itemId}
+        itemName={item?.itemName || ''}
+        isOpen={showFoundDialog}
+        onClose={() => setShowFoundDialog(false)}
+        onSuccess={() => setShowFoundDialog(false)}
+      />
+      </div>
     </AppShell>
   );
 }
