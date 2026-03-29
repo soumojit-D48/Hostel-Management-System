@@ -105,18 +105,26 @@ class CommentController {
 
       
       const validatedQuery: GetCommentsInput = req.query as any;
-      const { issueId, announcementId } = validatedQuery;
+      const { issueId, announcementId, lostFoundId } = validatedQuery;
 
       
-      const resourceId = issueId || announcementId;
-      const resourceType = issueId ? 'issue' : 'announcement';
+      const resourceId = issueId || announcementId || lostFoundId;
+      let resourceType: 'issue' | 'announcement' | 'lostFound' = 'issue';
+      
+      if (issueId) {
+        resourceType = 'issue';
+      } else if (announcementId) {
+        resourceType = 'announcement';
+      } else if (lostFoundId) {
+        resourceType = 'lostFound';
+      }
 
       if (!resourceId) {
         res.status(400).json({
           success: false,
           error: {
             code: 'VALIDATION_ERROR',
-            message: 'Either issueId or announcementId must be provided',
+            message: 'Either issueId, announcementId, or lostFoundId must be provided',
           },
         });
         return;

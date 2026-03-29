@@ -16,14 +16,12 @@ router.use(authenticate as any);
 
 router.post(
   '/',
-  validateRequest(createCommentSchema),
   commentController.createComment as any
 );
 
 
 router.get(
   '/',
-  validateRequest(getCommentsSchema, 'query' as any),
   commentController.getComments as any
 );
 

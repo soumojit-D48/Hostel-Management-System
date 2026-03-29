@@ -41,7 +41,7 @@ class CommentService {
     userId: string
   ): Promise<CommentWithUser> {
     try {
-      const { issueId, announcementId, content, parentId } = data;
+      const { issueId, announcementId, lostFoundId, content, parentId } = data;
 
       
       if (issueId) {
@@ -88,9 +88,16 @@ class CommentService {
         if (!announcement) {
           throw new Error('Announcement not found');
         }
+      }
 
-        
-        
+      if (lostFoundId) {
+        const lostFound = await prisma.lostFound.findUnique({
+          where: { id: lostFoundId }
+        });
+
+        if (!lostFound) {
+          throw new Error('Lost & Found item not found');
+        }
       }
 
       
@@ -112,6 +119,10 @@ class CommentService {
           throw new Error('Parent comment is not on the same announcement');
         }
 
+        if (lostFoundId && parentComment.lostFoundId !== lostFoundId) {
+          throw new Error('Parent comment is not on the same Lost & Found item');
+        }
+
         
         if (parentComment.parentId) {
           throw new Error('Cannot reply to a reply (max 1 level deep)');
@@ -125,6 +136,7 @@ class CommentService {
           userId,
           issueId: issueId || null,
           announcementId: announcementId || null,
+          lostFoundId: lostFoundId || null,
           parentId: parentId || null,
         },
         include: {
@@ -170,7 +182,7 @@ class CommentService {
 
   async getComments(
     resourceId: string,
-    resourceType: 'issue' | 'announcement',
+    resourceType: 'issue' | 'announcement' | 'lostFound',
     pagination: { page: number; limit: number }
   ): Promise<PaginatedComments> {
     try {
@@ -178,13 +190,17 @@ class CommentService {
       const skip = (page - 1) * limit;
 
       
-      const where = {
+      const where: any = {
         parentId: null, 
-        ...(resourceType === 'issue' 
-          ? { issueId: resourceId }
-          : { announcementId: resourceId }
-        )
       };
+
+      if (resourceType === 'issue') {
+        where.issueId = resourceId;
+      } else if (resourceType === 'announcement') {
+        where.announcementId = resourceId;
+      } else if (resourceType === 'lostFound') {
+        where.lostFoundId = resourceId;
+      }
 
       
       const total = await prisma.comment.count({ where });
