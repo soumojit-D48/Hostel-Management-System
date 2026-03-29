@@ -1,5 +1,5 @@
 import { UseQueryOptions, useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
+import { ApiClient } from '@/lib/api-client';
 
 export const useQueryBase = <T>(
     key: string[],
@@ -8,7 +8,7 @@ export const useQueryBase = <T>(
 ) => {
     return useQuery<T>({
         queryKey: key,
-        queryFn: () => apiClient.get<T>(url),
+        queryFn: () => ApiClient.get<T>(url),
         ...options,
     });
 };

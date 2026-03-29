@@ -14,11 +14,11 @@ export function useNotifications(params: UseNotificationsParams = {}) {
   return useQuery({
     queryKey: ['notifications', params],
     queryFn: async () => {
-      const response = await apiGet<ApiResponse<PaginatedResponse<Notification>>>(
+      const response = await apiGet<PaginatedResponse<Notification>>(
         '/notifications',
         params
       );
-      return response.data;
+      return response;
     },
   });
 }

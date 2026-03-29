@@ -14,9 +14,14 @@ export function useCreateComment() {
       return response.data;
     },
     onSuccess: (_, variables) => {
-      const queryKey = variables.issueId 
-        ? ['comments', 'issue', variables.issueId]
-        : ['comments', 'announcement', variables.announcementId];
+      let queryKey: string[] = [];
+      if (variables.issueId) {
+        queryKey = ['comments', 'issue', variables.issueId];
+      } else if (variables.announcementId) {
+        queryKey = ['comments', 'announcement', variables.announcementId];
+      } else if (variables.lostFoundId) {
+        queryKey = ['comments', 'lostFound', variables.lostFoundId];
+      }
       queryClient.invalidateQueries({ queryKey });
       toast.success('Comment added');
     },

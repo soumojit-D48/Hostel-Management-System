@@ -3,13 +3,20 @@ import { apiGet } from '@/lib/api-client';
 import { ApiResponse } from '@/types/api-response';
 import { Comment } from '@/types/comment.types';
 
-export function useComments(resourceId: string, isAnnouncement: boolean = false) {
+export function useComments(resourceId: string, isAnnouncement: boolean = false, isLostFound: boolean = false) {
+  const resourceType = isAnnouncement ? 'announcement' : isLostFound ? 'lostFound' : 'issue';
+  
   return useQuery({
-    queryKey: ['comments', isAnnouncement ? 'announcement' : 'issue', resourceId],
+    queryKey: ['comments', resourceType, resourceId],
     queryFn: async () => {
-      const params = isAnnouncement 
-        ? { announcementId: resourceId }
-        : { issueId: resourceId };
+      const params: Record<string, string> = {};
+      if (isAnnouncement) {
+        params.announcementId = resourceId;
+      } else if (isLostFound) {
+        params.lostFoundId = resourceId;
+      } else {
+        params.issueId = resourceId;
+      }
       const response = await apiGet<ApiResponse<Comment[]>>('/comments', params);
       return response.data;
     },

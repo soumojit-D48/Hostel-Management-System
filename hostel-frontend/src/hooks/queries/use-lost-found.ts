@@ -14,11 +14,11 @@ export function useLostFoundItems(params: UseLostFoundParams = {}) {
   return useQuery({
     queryKey: ['lost-found', params],
     queryFn: async () => {
-      const response = await apiGet<ApiResponse<PaginatedResponse<LostFoundItem>>>(
+      const response = await apiGet<PaginatedResponse<LostFoundItem>>(
         '/lost-found',
         params
       );
-      return response.data;
+      return response;
     },
   });
 }
