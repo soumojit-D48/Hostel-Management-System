@@ -429,14 +429,14 @@ class AnnouncementService {
       }
 
       const now = new Date();
-      const canAccessHostel = !user.hostelId 
-        ? announcement.hostelId === null 
+      const canAccessHostel = !user.hostelId
+        ? announcement.hostelId === null
         : announcement.hostelId === null || announcement.hostelId === user.hostelId;
-      
+
       const canAccessBlock = !user.blockId
         ? announcement.blockIds.length === 0
         : announcement.blockIds.length === 0 || announcement.blockIds.includes(user.blockId);
-      
+
       const canAccessRole = !user.role
         ? announcement.targetRoles.length === 0
         : announcement.targetRoles.length === 0 || announcement.targetRoles.includes(user.role);
@@ -596,14 +596,14 @@ class AnnouncementService {
       }
 
       const now = new Date();
-      const canAccessHostel = !user.hostelId 
-        ? announcement.hostelId === null 
+      const canAccessHostel = !user.hostelId
+        ? announcement.hostelId === null
         : announcement.hostelId === null || announcement.hostelId === user.hostelId;
-      
+
       const canAccessBlock = !user.blockId
         ? announcement.blockIds.length === 0
         : announcement.blockIds.length === 0 || announcement.blockIds.includes(user.blockId);
-      
+
       const canAccessRole = !user.role
         ? announcement.targetRoles.length === 0
         : announcement.targetRoles.length === 0 || announcement.targetRoles.includes(user.role);
