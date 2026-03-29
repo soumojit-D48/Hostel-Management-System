@@ -27,9 +27,12 @@ export const createLostFoundSchema = z.object({
 
     date: z
         .string()
-        .datetime({ message: 'Invalid date format' })
-        .or(z.date())
-        .transform((val) => (typeof val === 'string' ? new Date(val) : val)),
+        .transform((val) => {
+            if (!val) return undefined;
+            const date = new Date(val);
+            return isNaN(date.getTime()) ? undefined : date;
+        })
+        .refine((val) => val !== undefined, { message: 'Invalid date format' }),
 
     status: z.nativeEnum(LostFoundStatus),
 
@@ -40,15 +43,14 @@ export const createLostFoundSchema = z.object({
 });
 
 export const createClaimSchema = z.object({
-    itemId: z.string().cuid('Invalid item ID format'),
-
+    itemId: z.string().optional(),
     verificationDetails: z
         .string()
         .min(20, 'Verification details must be at least 20 characters')
         .max(1000, 'Verification details must not exceed 1000 characters')
         .trim(),
 
-    proofImage: z.string().url('Invalid proof image URL').optional(),
+    proofImage: z.string().optional(),
 });
 
 export const updateClaimSchema = z.object({
@@ -64,6 +66,7 @@ export const updateClaimSchema = z.object({
 export const getLostFoundItemsSchema = z.object({
     status: z.nativeEnum(LostFoundStatus).optional(),
     category: z.string().optional(),
+    search: z.string().optional(),
     startDate: z
         .string()
         .datetime()
@@ -92,8 +95,22 @@ export const markAsReturnedSchema = z.object({
     itemId: z.string().cuid('Invalid item ID format'),
 });
 
+export const reportFoundSchema = z.object({
+    foundMessage: z
+        .string()
+        .min(10, 'Message must be at least 10 characters')
+        .max(500, 'Message must not exceed 500 characters')
+        .trim(),
+    foundLocation: z
+        .string()
+        .min(2, 'Location is required')
+        .max(200, 'Location must not exceed 200 characters')
+        .trim(),
+});
+
 export type CreateLostFoundInput = z.infer<typeof createLostFoundSchema>;
 export type CreateClaimInput = z.infer<typeof createClaimSchema>;
 export type UpdateClaimInput = z.infer<typeof updateClaimSchema>;
 export type GetLostFoundItemsInput = z.infer<typeof getLostFoundItemsSchema>;
 export type SearchLostFoundInput = z.infer<typeof searchLostFoundSchema>;
+export type ReportFoundInput = z.infer<typeof reportFoundSchema>;

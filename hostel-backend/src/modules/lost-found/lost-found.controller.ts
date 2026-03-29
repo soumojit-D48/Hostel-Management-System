@@ -209,11 +209,24 @@ export class LostFoundController {
                 return;
             }
 
-            // Validate claim data
-            const claimData = createClaimSchema.parse({
-                ...req.body,
+            // Get verificationDetails from body
+            const verificationDetails = req.body?.verificationDetails;
+            
+            // Handle uploaded proof image
+            let proofImageUrl: string | undefined;
+            if (req.files && Array.isArray(req.files)) {
+                const proofFile = req.files.find((f: any) => f.fieldname === 'proofImage');
+                if (proofFile) {
+                    proofImageUrl = proofFile.path;
+                }
+            }
+
+            // Build claim data
+            const claimData = {
                 itemId: id,
-            });
+                verificationDetails: verificationDetails || '',
+                proofImage: proofImageUrl,
+            };
 
             const claim = await lostFoundService.claimItem(claimData, userId);
 
@@ -385,6 +398,66 @@ export class LostFoundController {
                 count: claims.length,
             });
         } catch (error: any) {
+            next(error);
+        }
+    }
+
+    /**
+     * Report found item
+     * POST /api/v1/lost-found/:id/found
+     */
+    async reportFoundItem(
+        req: AuthenticatedRequest,
+        res: Response,
+        next: NextFunction
+    ): Promise<void> {
+        try {
+            const id = req.params.id as string;
+            const userId = req.user?.id;
+
+            if (!userId) {
+                res.status(401).json({
+                    success: false,
+                    message: 'Unauthorized',
+                });
+                return;
+            }
+
+            const foundMessage = req.body?.foundMessage;
+            const foundLocation = req.body?.foundLocation;
+            
+            let foundImageUrl: string | undefined;
+            if (req.files && Array.isArray(req.files)) {
+                const foundFile = req.files.find((f: any) => f.fieldname === 'foundImage');
+                if (foundFile) {
+                    foundImageUrl = foundFile.path;
+                }
+            }
+
+            const result = await lostFoundService.reportFoundItem(
+                id,
+                {
+                    foundMessage: foundMessage || '',
+                    foundLocation: foundLocation || '',
+                    foundImage: foundImageUrl,
+                },
+                userId
+            );
+
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: 'Found item reported successfully. The owner has been notified.',
+            });
+        } catch (error: any) {
+            if (error.name === 'ZodError') {
+                res.status(400).json({
+                    success: false,
+                    message: 'Validation error',
+                    errors: error.errors,
+                });
+                return;
+            }
             next(error);
         }
     }

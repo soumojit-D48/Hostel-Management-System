@@ -139,7 +139,7 @@ export class LostFoundService {
     }
 
     async getLostFoundItems(filters: GetLostFoundItemsInput) {
-        const { status, category, startDate, endDate, page, limit } = filters;
+        const { status, category, search, startDate, endDate, page, limit } = filters;
 
         const skip = (page - 1) * limit;
 
@@ -151,6 +151,14 @@ export class LostFoundService {
 
         if (category) {
             where.category = category;
+        }
+
+        if (search) {
+            where.OR = [
+                { itemName: { contains: search, mode: 'insensitive' } },
+                { description: { contains: search, mode: 'insensitive' } },
+                { location: { contains: search, mode: 'insensitive' } },
+            ];
         }
 
         if (startDate || endDate) {
@@ -271,6 +279,20 @@ export class LostFoundService {
                                 name: true,
                             },
                         },
+                    },
+                },
+                claimedBy: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                    },
+                },
+                foundBy: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
                     },
                 },
                 claims: {
@@ -509,6 +531,16 @@ export class LostFoundService {
     async markAsReturned(itemId: string, managementUserId: string) {
         const item = await prisma.lostFound.findUnique({
             where: { id: itemId },
+            include: {
+                claims: {
+                    where: { status: ClaimStatus.APPROVED },
+                    include: {
+                        claimant: {
+                            select: { id: true, name: true, email: true }
+                        }
+                    }
+                }
+            }
         });
 
         if (!item) {
@@ -519,13 +551,23 @@ export class LostFoundService {
             throw new Error('Only claimed items can be marked as returned');
         }
 
+        const approvedClaim = item.claims[0];
+
         const updatedItem = await prisma.lostFound.update({
             where: { id: itemId },
             data: {
                 status: LostFoundStatus.RETURNED,
+                claimedById: approvedClaim?.claimantId,
             },
             include: {
                 reportedBy: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                    },
+                },
+                claimedBy: {
                     select: {
                         id: true,
                         name: true,
@@ -571,6 +613,52 @@ export class LostFoundService {
         });
 
         return claims;
+    }
+
+    async reportFoundItem(
+        itemId: string,
+        data: {
+            foundMessage: string;
+            foundLocation: string;
+            foundImage?: string;
+        },
+        userId: string
+    ) {
+        const item = await prisma.lostFound.findUnique({
+            where: { id: itemId },
+        });
+
+        if (!item) {
+            throw new Error('Item not found');
+        }
+
+        if (item.status !== 'LOST') {
+            throw new Error('Only lost items can be reported as found');
+        }
+
+        if (item.reportedById === userId) {
+            throw new Error('You cannot report your own item as found');
+        }
+
+        const updatedItem = await prisma.lostFound.update({
+            where: { id: itemId },
+            data: {
+                foundById: userId,
+                foundMessage: data.foundMessage,
+                foundLocation: data.foundLocation,
+                foundImage: data.foundImage,
+            },
+            include: {
+                reportedBy: {
+                    select: { id: true, name: true, email: true }
+                },
+                foundBy: {
+                    select: { id: true, name: true, email: true }
+                }
+            }
+        });
+
+        return updatedItem;
     }
 }
 
