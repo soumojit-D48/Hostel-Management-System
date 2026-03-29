@@ -4,7 +4,7 @@ import { Toaster } from 'sonner';
 import './globals.css';
 
 export const metadata = {
-  title: 'Smart Hostel Management',
+  title: 'HostelEase',
   description: 'Comprehensive hostel management system',
 };
 
