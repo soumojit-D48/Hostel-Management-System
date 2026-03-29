@@ -8,9 +8,13 @@ export class AnalyticsController {
     async getDashboardOverview(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
         try {
             const { hostelId } = req.query;
+            const userId = req.user?.id;
+            const userRole = req.user?.role;
 
             const data = await analyticsService.getDashboardOverview(
-                hostelId as string
+                hostelId as string,
+                userId,
+                userRole
             );
 
             res.status(200).json({

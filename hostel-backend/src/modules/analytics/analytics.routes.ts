@@ -6,10 +6,7 @@ import { Role } from '@prisma/client';
 
 const router = Router();
 
-
-
 router.use(authenticate as any);
-router.use(authorize(Role.MANAGEMENT) as any);
 
 router.get(
     '/dashboard',

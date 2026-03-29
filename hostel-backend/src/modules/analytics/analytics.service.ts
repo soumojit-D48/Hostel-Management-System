@@ -4,13 +4,23 @@ import { startOfDay, subDays, startOfHour, format } from 'date-fns';
 const prisma = new PrismaClient();
 
 export class AnalyticsService {
-    async getDashboardOverview(hostelId?: string) {
-        const whereHostel = hostelId ? { hostelId } : {};
+    async getDashboardOverview(hostelId?: string, userId?: string, userRole?: string) {
+        let whereClause: any = {};
+
+        if (hostelId) {
+            whereClause.hostelId = hostelId;
+        }
+
+        if (userRole === 'STUDENT' && userId) {
+            whereClause.reportedById = userId;
+        } else if (userRole === 'STAFF' && userId) {
+            whereClause.assignedToId = userId;
+        }
 
         
         const statusCounts = await prisma.issue.groupBy({
             by: ['status'],
-            where: whereHostel,
+            where: whereClause,
             _count: {
                 id: true,
             },
@@ -33,7 +43,7 @@ export class AnalyticsService {
         const today = startOfDay(new Date());
         const newIssuesToday = await prisma.issue.count({
             where: {
-                ...whereHostel,
+                ...whereClause,
                 createdAt: {
                     gte: today,
                 },
@@ -44,7 +54,7 @@ export class AnalyticsService {
         
         const resolvedIssues = await prisma.issue.findMany({
             where: {
-                ...whereHostel,
+                ...whereClause,
                 status: {
                     in: [IssueStatus.RESOLVED, IssueStatus.CLOSED],
                 },
@@ -101,11 +111,11 @@ export class AnalyticsService {
     }
 
     async getCategoryBreakdown(hostelId?: string) {
-        const whereHostel = hostelId ? { hostelId } : {};
+        const whereClause = hostelId ? { hostelId } : {};
 
         const categoryCounts = await prisma.issue.groupBy({
             by: ['category'],
-            where: whereHostel,
+            where: whereClause,
             _count: {
                 id: true,
             },
