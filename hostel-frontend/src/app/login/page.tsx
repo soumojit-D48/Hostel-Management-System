@@ -206,7 +206,7 @@ export default function LoginPage() {
           <div className="mb-8 text-center">
             <div className="mb-4 flex justify-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-600 to-secondary-600">
-                <span className="text-2xl font-bold text-white">SH</span>
+                <span className="text-2xl font-bold text-white">HE</span>
               </div>
             </div>
             <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-50">

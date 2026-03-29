@@ -176,8 +176,9 @@ import { useAuthStore } from '@/store/auth.store';
 import { resetPasswordSchema, type ResetPasswordFormData } from '@/schemas/auth.schema';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Suspense } from 'react';
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { resetPassword, isLoading } = useAuthStore();
@@ -406,5 +407,13 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }
