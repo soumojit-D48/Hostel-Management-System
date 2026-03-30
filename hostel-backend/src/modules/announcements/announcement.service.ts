@@ -587,11 +587,6 @@ class AnnouncementService {
         return {
           ...announcement,
           isRead: announcement.readBy.length > 0,
-          createdBy: {
-            id: announcement.createdById,
-            name: 'Admin',
-            email: 'admin@hostel.com',
-          },
         } as any;
       }
 
@@ -716,7 +711,7 @@ class AnnouncementService {
         title: data.title,
         content: data.content,
         category: data.category,
-        priority: data.priority,
+        priority: typeof data.priority === 'string' ? data.priority === 'true' : data.priority,
         hostelId: data.hostelId,
         blockIds: data.blockIds,
         targetRoles: data.targetRoles,
