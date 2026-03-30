@@ -433,10 +433,8 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterFormData) => {
     try {
       await registerUser(data);
-      toast.success('Registration successful!', {
-        description: 'Please check your email to verify your account.',
-      });
-      router.push('/verify-email');
+      toast.success('Registration successful!');
+      router.push('/dashboard');
     } catch (error: any) {
       toast.error('Registration failed', {
         description: error.message || 'Please try again.',
