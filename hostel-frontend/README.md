@@ -1,36 +1,225 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Smart Hostel Management - Frontend
 
-## Getting Started
+Next.js frontend for the Smart Hostel Management System.
 
-First, run the development server:
+## Tech Stack
+
+- **Framework**: Next.js 16 with App Router
+- **Language**: TypeScript
+- **UI Library**: React 19
+- **Styling**: Tailwind CSS 4
+- **State Management**: Zustand
+- **Data Fetching**: TanStack Query (React Query)
+- **Forms**: React Hook Form + Zod
+- **UI Components**: Radix UI + Vaul
+- **Real-time**: Socket.io Client
+- **Charts**: Recharts
+- **Animations**: Framer Motion + Tw Animate CSS
+- **Date Handling**: date-fns
+
+## Installation
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Install dependencies
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Copy environment file
+cp .env.local.example .env.local
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Required Environment Variables
 
-## Learn More
+```env
+# API
+NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
+NEXT_PUBLIC_SOCKET_URL=http://localhost:5000
 
-To learn more about Next.js, take a look at the following resources:
+# Cloudinary
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Development
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+# Start development server
+npm run dev
+```
 
-## Deploy on Vercel
+Frontend runs on `http://localhost:3000`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Available Scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Build for production |
+| `npm run start` | Start production server |
+| `npm run lint` | Run ESLint |
+
+## Project Structure
+
+```
+src/
+├── app/                        # Next.js App Router
+│   ├── (auth)/
+│   │   ├── login/
+│   │   ├── register/
+│   │   ├── forgot-password/
+│   │   └── reset-password/
+│   ├── (dashboard)/
+│   │   ├── dashboard/
+│   │   ├── issues/
+│   │   ├── announcements/
+│   │   ├── lost-found/
+│   │   ├── analytics/
+│   │   ├── notifications/
+│   │   ├── profile/
+│   │   └── settings/
+│   ├── api/
+│   ├── layout.tsx
+│   └── page.tsx
+│
+├── components/
+│   ├── ui/                    # Base UI components
+│   ├── shared/                # Shared components
+│   ├── issues/                # Issue-related components
+│   ├── announcements/         # Announcement components
+│   └── layout/                # Layout components
+│
+├── store/                     # Zustand stores
+│   ├── auth.store.ts
+│   └── ui.store.ts
+│
+├── lib/
+│   ├── api.ts                 # API client
+│   ├── axios.ts               # Axios instance
+│   ├── socket.ts              # Socket.io client
+│   ├── utils.ts               # Utility functions
+│   └── cn.ts                  # ClassName utility
+│
+├── types/                     # TypeScript types
+│   ├── api.types.ts
+│   └── index.ts
+│
+└── constants/                 # App constants
+```
+
+## Features
+
+### Authentication
+- User registration with email verification
+- Login with email/password
+- Google OAuth integration
+- Password reset functionality
+- Protected routes with role-based access
+
+### Dashboard
+- Overview statistics
+- Recent issues
+- Quick actions
+- Announcements preview
+
+### Issue Management
+- Create new issues with images
+- View issue list with filters
+- Track issue status
+- Add comments
+- View issue history
+
+### Announcements
+- View announcements by category
+- Mark as read
+- Priority announcements highlight
+- Filter by hostel/block/role
+
+### Lost & Found
+- Report lost items
+- Post found items
+- Claim items
+- Track claim status
+
+### Analytics
+- Issue statistics
+- Category breakdown
+- Resolution time metrics
+- Visual charts
+
+### Profile & Settings
+- Update profile information
+- Change password
+- Notification preferences
+
+## Pages
+
+| Route | Description |
+|-------|-------------|
+| `/` | Landing page |
+| `/login` | Login page |
+| `/register` | Registration page |
+| `/forgot-password` | Forgot password |
+| `/reset-password` | Reset password |
+| `/dashboard` | Main dashboard |
+| `/issues` | Issues list |
+| `/issues/new` | Create new issue |
+| `/issues/[id]` | Issue details |
+| `/announcements` | Announcements list |
+| `/announcements/[id]` | Announcement details |
+| `/lost-found` | Lost & Found items |
+| `/analytics` | Analytics dashboard |
+| `/notifications` | Notification center |
+| `/profile` | User profile |
+| `/settings` | Settings page |
+
+## State Management
+
+### Auth Store (Zustand)
+```typescript
+// Stores user authentication state
+- user: User | null
+- isAuthenticated: boolean
+- login(credentials)
+- register(data)
+- logout()
+- updateUser(data)
+```
+
+### React Query
+- Used for server state management
+- Automatic caching and refetching
+- Optimistic updates
+
+## API Integration
+
+API calls are made through a centralized Axios instance with:
+- Request/response interceptors
+- Automatic token refresh
+- Error handling
+- Loading states
+
+## UI Components
+
+Built with Radix UI primitives:
+- Dialog
+- Dropdown Menu
+- Select
+- Toast/Sonner
+- Alert Dialog
+- Checkbox
+- Radio Group
+- Label
+- Sheet (Vaul)
+
+## Real-time
+
+Socket.io integration for:
+- New notifications
+- Issue updates
+- Announcement broadcasts
+
+## License
+
+ISC
